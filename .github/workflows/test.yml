@@ -1,0 +1,40 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+  pull_request:
+    branches:
+      - '**'
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Automated Code Review
+    runs-on: macos-12
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v2.5.0
+
+      - name: Cache RubyGems
+        uses: actions/cache@v3
+        id: rubygem-cache
+        with:
+          path: vendor/bundle
+          key: ${{ env.IMAGE }}-gem-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: ${{ env.IMAGE }}-gem-
+
+      - run: bundle install
+
+      - run: brew install sonar-scanner
+
+      - run: bundle exec fastlane code_review
+
+      - run: bundle exec fastlane sonar_upload
