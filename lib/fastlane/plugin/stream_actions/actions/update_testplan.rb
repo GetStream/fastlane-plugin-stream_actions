@@ -4,14 +4,17 @@ module Fastlane
       def self.run(params)
         data_hash = JSON.parse(File.read(params[:path]))
 
-        # Create the `environmentVariableEntries` array if it doesn't exist
         data_hash['defaultOptions']['environmentVariableEntries'] ||= []
 
-        data_hash['defaultOptions']['environmentVariableEntries'] << params[:env_vars]
+        if params[:env_vars].kind_of?(Hash)
+          data_hash['defaultOptions']['environmentVariableEntries'] << params[:env_vars]
+        else
+          params[:env_vars].each { |env| data_hash['defaultOptions']['environmentVariableEntries'] << env }
+        end
+
         File.write(params[:path], JSON.pretty_generate(data_hash))
 
-        UI.success("✅ `#{params[:env_vars]}` ENV variables have been added to #{params[:path]}")
-        UI.message("👀 #{params[:path]} ENV variables:\n#{data_hash['defaultOptions']['environmentVariableEntries']}")
+        UI.message("👀 Testplan environment variables:\n#{data_hash['defaultOptions']['environmentVariableEntries']}")
       end
 
       #####################################################
@@ -35,8 +38,8 @@ module Fastlane
             key: :env_vars,
             description: 'The environment variables to add to test plan',
             is_string: false,
-            verify_block: proc do |array|
-              UI.user_error!("The environment variables array should not be empty") if array.empty?
+            verify_block: proc do |env_vars|
+              UI.user_error!("The environment variables array should not be empty") if env_vars.nil? || env_vars.empty?
             end
           )
         ]

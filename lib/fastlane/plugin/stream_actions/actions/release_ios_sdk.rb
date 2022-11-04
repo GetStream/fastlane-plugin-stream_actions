@@ -30,7 +30,7 @@ module Fastlane
 
         release_details = other_action.set_github_release(
           repository_name: params[:github_repo],
-          api_token: ENV['GITHUB_TOKEN'],
+          api_token: params[:github_token],
           name: version_number,
           tag_name: version_number,
           description: changes,
@@ -115,7 +115,7 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_TOKEN',
             key: :github_token,
-            description: 'GITHUB_TOKEN env var has to be set up'
+            description: 'GITHUB_TOKEN environment variable'
           ),
           FastlaneCore::ConfigItem.new(
             key: :check_git_status,

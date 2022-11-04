@@ -47,9 +47,9 @@ module Fastlane
           "This is the build for Regression testing on release candidate v#{version_number} (sha: #{sha})."
         else
           "This is the official sample app built with iOS #{params[:sdk_target]} SDK v#{version_number}. It's designed " \
-          'to highlight engaging features and new improvements to the SDK, but remember that this is just one ' \
-          'possible implementation. You can start your own by borrowing and customizing the code from this ' \
-          "sample, or build something completely different using Stream's components."
+            'to highlight engaging features and new improvements to the SDK, but remember that this is just one ' \
+            'possible implementation. You can start your own by borrowing and customizing the code from this ' \
+            "sample, or build something completely different using Stream's components."
         end
       end
 
@@ -68,35 +68,35 @@ module Fastlane
             description: 'AppStore Connect API Key',
             is_string: false,
             verify_block: proc do |api_key|
-              UI.user_error!('AppStore Connect API Key has to be specified') unless api_key
+              UI.user_error!('AppStore Connect API Key has to be specified') if api_key.nil? || api_key.empty?
             end
           ),
           FastlaneCore::ConfigItem.new(
             key: :xcode_project,
             description: 'Path to the Xcode project',
             verify_block: proc do |path|
-              UI.user_error!('Path to the Xcode project has to be specified') unless path
+              UI.user_error!('Path to the Xcode project has to be specified') if path.nil? || path.empty?
             end
           ),
           FastlaneCore::ConfigItem.new(
             key: :sdk_target,
             description: 'SDK target name',
             verify_block: proc do |target|
-              UI.user_error!('SDK target name has to be specified') unless target
+              UI.user_error!('SDK target name has to be specified') if target.nil? || target.empty?
             end
           ),
           FastlaneCore::ConfigItem.new(
             key: :app_target,
             description: 'DemoApp target name',
             verify_block: proc do |target|
-              UI.user_error!('DemoApp target name has to be specified') unless target
+              UI.user_error!('DemoApp target name has to be specified') if target.nil? || target.empty?
             end
           ),
           FastlaneCore::ConfigItem.new(
             key: :app_identifier,
             description: 'DemoApp bundle identifier',
             verify_block: proc do |id|
-              UI.user_error!('DemoApp bundle identifier has to be specified') unless id
+              UI.user_error!('DemoApp bundle identifier has to be specified') if id.nil? || id.empty?
             end
           ),
           FastlaneCore::ConfigItem.new(

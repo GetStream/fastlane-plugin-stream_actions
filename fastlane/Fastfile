@@ -7,7 +7,7 @@ lane :release do
   sh("gem push ../#{gem_path}")
   set_github_release(
     repository_name: 'GetStream/fastlane-plugin-stream_actions',
-    api_token: ENV["GITHUB_TOKEN"],
+    api_token: ENV.fetch("GITHUB_TOKEN", nil),
     name: "Stream Actions v#{version}",
     tag_name: "v#{version}",
     description: "v#{version}",
@@ -25,14 +25,14 @@ lane :sonar_upload do
   sonar_options =
     if ENV['GITHUB_EVENT_NAME'] == 'pull_request'
       {
-        sonar_login: ENV['SONAR_TOKEN'],
-        pull_request_branch: ENV['GITHUB_HEAD_REF'],
-        pull_request_base: ENV['GITHUB_BASE_REF'],
-        pull_request_key: ENV['PR_NUMBER']
+        sonar_login: ENV.fetch('SONAR_TOKEN', nil),
+        pull_request_branch: ENV.fetch('GITHUB_HEAD_REF', nil),
+        pull_request_base: ENV.fetch('GITHUB_BASE_REF', nil),
+        pull_request_key: ENV.fetch('PR_NUMBER', nil)
       }
     else
       {
-        sonar_login: ENV['SONAR_TOKEN'],
+        sonar_login: ENV.fetch('SONAR_TOKEN', nil),
         branch_name: ENV['BRANCH_NAME'] || git_branch,
         project_version: version
       }
@@ -45,7 +45,7 @@ private_lane :update_simplecov_report do
   coverage = JSON.parse(File.read('../coverage/.resultset.json'))["RSpec"]["coverage"]
   transformed_values = coverage.transform_values { |l| l["lines"] }
   new_format = { "RSpec" => { "coverage" => transformed_values, "timestamp" => Time.now.to_i } }
-  File.open('../coverage/.sonar.json', 'w') { |f| f.write(JSON.pretty_generate(new_format)) }
+  File.write('../coverage/.sonar.json', JSON.pretty_generate(new_format))
 end
 
 def version

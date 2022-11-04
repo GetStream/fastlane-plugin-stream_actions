@@ -2,11 +2,11 @@ module Fastlane
   module Actions
     class IsCheckRequiredAction < Action
       def self.run(params)
-        return true unless params[:github_pr_num]
+        return true if params[:github_pr_num].nil? || params[:github_pr_num].empty?
 
         UI.message("Checking if check is required for PR ##{params[:github_pr_num]}")
 
-        changed_files = sh("gh pr view #{params[:github_pr_num]} --json files -q '.files[].path'").split("\n")
+        changed_files = Actions.sh("gh pr view #{params[:github_pr_num]} --json files -q '.files[].path'").split("\n")
 
         return true if changed_files.size == 100 # TODO: https://github.com/cli/cli/issues/5368
 
@@ -31,14 +31,15 @@ module Fastlane
             key: :sources,
             description: 'Array of paths to scan',
             is_string: false,
-            verify_block: proc do |source|
-              UI.user_error!("Sources have to be specified") unless source
+            verify_block: proc do |array|
+              UI.user_error!("Sources have to be specified") unless array.kind_of?(Array) && array.size.positive?
             end
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_PR_NUM',
             key: :github_pr_num,
-            description: 'GitHub PR number'
+            description: 'GitHub PR number',
+            optional: true
           )
         ]
       end

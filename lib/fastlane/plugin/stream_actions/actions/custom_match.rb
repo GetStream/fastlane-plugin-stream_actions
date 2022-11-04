@@ -35,7 +35,7 @@ module Fastlane
             description: 'AppStore Connect API Key',
             is_string: false,
             verify_block: proc do |api_key|
-              UI.user_error!('AppStore Connect API Key has to be specified') unless api_key
+              UI.user_error!('AppStore Connect API Key has to be specified') if api_key.nil? || api_key.empty? || !api_key.kind_of?(Hash)
             end
           ),
           FastlaneCore::ConfigItem.new(

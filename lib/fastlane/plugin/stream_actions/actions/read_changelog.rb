@@ -2,8 +2,6 @@ module Fastlane
   module Actions
     class ReadChangelogAction < Action
       def self.run(params)
-        UI.user_error!('You need to pass the version of the release you want to obtain the changelog from') unless params[:version]
-
         UI.message("Getting changelog for #{params[:version]}")
         reading_changelog = false
         changes = ''
@@ -38,7 +36,7 @@ module Fastlane
             key: :version,
             description: 'Release version',
             verify_block: proc do |v|
-              UI.user_error!("You need to pass the version of the release you want to obtain the changelog from") unless v
+              UI.user_error!("You need to pass the version of the release you want to obtain the changelog from") if v.nil? || v.empty?
             end
           ),
           FastlaneCore::ConfigItem.new(
