@@ -37,7 +37,7 @@ module Fastlane
           commitish: ENV['BRANCH_NAME'] || other_action.git_branch
         )
 
-        podspecs.each { |podspec| pod_push_safely(podspec: podspec, sync: params[:pod_sync] & true) }
+        podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec, sync: params[:pod_sync] & true) }
 
         UI.success("Github release v#{version_number} was created, please visit #{release_details['html_url']} to see it! 🚢")
       end
@@ -67,16 +67,6 @@ module Fastlane
         UI.user_error!("Not pushing changes") unless other_action.prompt(text: "Will push changes. All looking good?", boolean: true)
 
         other_action.push_to_git_remote(tags: true)
-      end
-
-      def self.pod_push_safely(params)
-        UI.message("Starting to push podspec: #{params[:podspec]}")
-        other_action.pod_push(path: params[:podspec], allow_warnings: true, synchronous: params[:sync])
-      rescue StandardError => e
-        UI.message(e)
-        UI.message("pod_push failed for #{params[:podspec]}. Waiting a minute until retry for trunk to get updated...")
-        sleep(60) # sleep for a minute, wait until trunk gets updates
-        pod_push_safely(params)
       end
 
       #####################################################
