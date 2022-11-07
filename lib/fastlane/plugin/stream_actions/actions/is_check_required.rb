@@ -2,7 +2,7 @@ module Fastlane
   module Actions
     class IsCheckRequiredAction < Action
       def self.run(params)
-        return true if params[:github_pr_num].nil? || params[:github_pr_num].empty?
+        return true if params[:github_pr_num].nil? || params[:github_pr_num].strip.empty?
 
         UI.message("Checking if check is required for PR ##{params[:github_pr_num]}")
 

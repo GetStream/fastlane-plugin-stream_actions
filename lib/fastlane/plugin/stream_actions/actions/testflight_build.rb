@@ -34,7 +34,7 @@ module Fastlane
           changelog: testflight_instructions(params)
         )
 
-        if params[:github_pr_num]
+        if params[:github_pr_num] && !params[:github_pr_num].strip.empty?
           message = "Build for regression testing №#{build_number} has been uploaded to TestFlight 🎁"
           sh("gh pr comment #{params[:github_pr_num]} -b '#{message}'")
         end
