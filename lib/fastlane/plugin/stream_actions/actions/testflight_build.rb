@@ -6,7 +6,7 @@ module Fastlane
           app_identifier: params[:app_identifier],
           api_key: params[:api_key]
         ) + 1
-        other_action.increment_build_number(build_number: build_number.to_s)
+        other_action.increment_build_number_in_plist(build_number: build_number.to_s, target: params[:app_target])
 
         other_action.gym(
           project: params[:xcode_project],
