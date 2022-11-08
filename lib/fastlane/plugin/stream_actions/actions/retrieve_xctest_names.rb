@@ -3,7 +3,7 @@ require 'xctest_list'
 
 module Fastlane
   module Actions
-    class RetrieveXCTestNamesAction < Action
+    class RetrieveXctestNamesAction < Action
       def self.run(params)
         UI.verbose("Getting tests from xctestrun file at '#{params[:xctestrun]}'")
         xctestrun_tests(params[:xctestrun])

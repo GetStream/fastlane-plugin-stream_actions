@@ -32,7 +32,7 @@ module Fastlane
           token: params[:token],
           path: '/launch',
           http_method: 'POST',
-          body: body
+          request_body: body
         )['id']
 
         UI.success("Launch with id #{launch_id} created successfully 🎉")

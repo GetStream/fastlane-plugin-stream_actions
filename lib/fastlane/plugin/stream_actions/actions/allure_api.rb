@@ -2,9 +2,9 @@ module Fastlane
   module Actions
     class AllureApiAction < Action
       def self.run(params)
-        url = URI("#{params[:url]}/api/rs/#{options[:endpoint]}")
+        url = URI("#{params[:url]}/api/rs/#{params[:path]}")
         request =
-          case options[:http_method].upcase
+          case params[:http_method].upcase
           when 'GET'
             Net::HTTP::Get.new(url)
           when 'POST'
@@ -20,7 +20,7 @@ module Fastlane
 
         request['authorization'] = "Api-Token #{params[:token]}"
         request['content-type'] = 'application/json'
-        request.body = options[:request_body] if options[:request_body]
+        request.body = params[:request_body] if params[:request_body]
 
         response_body = http.request(request).read_body
         JSON.parse(response_body) if !response_body.nil? && !response_body.empty?

@@ -9,7 +9,7 @@ module Fastlane
           token: params[:token],
           path: '/testcase',
           http_method: 'POST',
-          body: body
+          request_body: body
         )['id']
 
         UI.success("Testcase with id #{testcase_id} created successfully 🎉")
