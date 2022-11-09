@@ -8,9 +8,9 @@ This project is a [_fastlane_](https://github.com/fastlane/fastlane) plugin. To 
 gem 'fastlane-plugin-stream_actions'
 ```
 
-## About stream_actions
+## About Stream Fastlane Actions
 
-Stream Actions are used to share the codebase and automate the release process for Stream SDKs.
+Stream Actions are used to share the scripts and fastlane actions across multiple repositories and automate the release process of iOS Stream SDKs.
 
 ## Start working on this plugin
 
