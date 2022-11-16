@@ -17,7 +17,7 @@ module Fastlane
           path: "/testplan/#{testplan_id}/sync",
           http_method: 'POST'
         )
-        UI.success("#{rocket}\nTestplan with id #{testplan_id} synced successfully 🎉")
+        UI.success("Testplan with id #{testplan_id} synced successfully 🎉")
 
         body = {
           launchName: "#{params[:testplan]} #{params[:release_version]}",
@@ -31,7 +31,7 @@ module Fastlane
           http_method: 'POST',
           body: body
         )
-        UI.success("#{rocket}\nTestplan with id #{testplan_id} launched successfully 🎉")
+        UI.success("Testplan with id #{testplan_id} launched successfully 🎉")
       end
 
       #####################################################
