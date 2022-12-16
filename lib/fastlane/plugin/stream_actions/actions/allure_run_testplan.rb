@@ -29,7 +29,7 @@ module Fastlane
           token: params[:token],
           path: "/testplan/#{testplan_id}/run",
           http_method: 'POST',
-          body: body
+          request_body: body
         )
         UI.success("Testplan with id #{testplan_id} launched successfully 🎉")
       end
