@@ -7,7 +7,7 @@ describe Fastlane do
         result = described_class.new.parse("lane :test do
           prepare_simulator(device: '#{sim_name}')
         end").runner.execute(:test)
-        expect(result).not_to be_empty
+        expect(result).to be(true)
       end
 
       it 'verifies that simulator with version can be prepared' do
@@ -15,7 +15,7 @@ describe Fastlane do
         result = described_class.new.parse("lane :test do
           prepare_simulator(device: '#{sim_name} (#{sim.os_version})')
         end").runner.execute(:test)
-        expect(result).not_to be_empty
+        expect(result).to be(true)
       end
 
       it 'verifies that simulator can be reset' do
@@ -23,6 +23,20 @@ describe Fastlane do
 
         described_class.new.parse("lane :test do
           prepare_simulator(device: '#{sim_name}', reset: true)
+        end").runner.execute(:test)
+      end
+
+      it 'raises an error after providing a wrong name of the simulator' do
+        expect(Fastlane::UI).to receive(:user_error!)
+        described_class.new.parse("lane :test do
+          prepare_simulator(device: 'Google Pixel 4')
+        end").runner.execute(:test)
+      end
+
+      it 'raises an error after providing a wrong version of the simulator' do
+        expect(Fastlane::UI).to receive(:user_error!)
+        described_class.new.parse("lane :test do
+          prepare_simulator(device: '#{sim_name} (0.42)')
         end").runner.execute(:test)
       end
     end
