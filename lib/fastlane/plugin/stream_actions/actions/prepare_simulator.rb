@@ -3,21 +3,28 @@ module Fastlane
     class PrepareSimulatorAction < Action
       def self.run(params)
         simulators = FastlaneCore::Simulator.all
-        version_provided = params[:device] =~ /\((\d+\.)?(\d+\.)?(\*|\d+)\)/
-        sim = if version_provided
-                simulators.detect { |d| "#{d.name} (#{d.os_version})" == params[:device] }
-              else
-                simulators.filter { |d| d.name == params[:device] }.max_by(&:os_version)
-              end
+        version_regex = /\((\d+\.)?(\d+\.)?(\*|\d+)\)/
+        ios_version = params[:device][version_regex]
+
+        if ios_version.nil?
+          sim = simulators.filter { |d| d.name == params[:device] }.max_by(&:os_version)
+        else
+          sim = simulators.detect { |d| "#{d.name} (#{d.os_version})" == params[:device] }
+          if sim.nil?
+            device_name = params[:device].sub(version_regex, '').strip
+            sh("xcrun simctl create '#{device_name}' '#{device_name}' 'iOS#{ios_version.delete('()')}'")
+            sim = simulators.detect { |d| "#{d.name} (#{d.os_version})" == params[:device] }
+          end
+        end
 
         if sim.nil?
-          simulators.map! { |d| version_provided ? "#{d.name} (#{d.os_version})" : d.name }
-          UI.user_error!("Simulator #{params[:device]} not found \nAvailable simulators: \n#{simulators.join("\n")}")
-        else
-          sim.reset if params[:reset]
-          sh("xcrun simctl bootstatus #{sim.udid} -b")
-          UI.success("Simulator #{sim.name} (#{sim.os_version}) is ready")
+          simulators.map! { |d| "#{d.name} (#{d.os_version})" }.join("\n")
+          UI.user_error!("Simulator #{params[:device]} not found \nAvailable simulators: \n#{simulators}")
         end
+
+        sim.reset if params[:reset]
+        sh("xcrun simctl bootstatus #{sim.udid} -b")
+        UI.success("Simulator #{sim.name} (#{sim.os_version}) is ready")
       end
 
       #####################################################

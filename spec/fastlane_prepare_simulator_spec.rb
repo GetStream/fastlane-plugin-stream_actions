@@ -27,17 +27,19 @@ describe Fastlane do
       end
 
       it 'raises an error after providing a wrong name of the simulator' do
-        expect(Fastlane::UI).to receive(:user_error!)
-        described_class.new.parse("lane :test do
-          prepare_simulator(device: 'Google Pixel 4')
-        end").runner.execute(:test)
+        expect do
+          described_class.new.parse("lane :test do
+            prepare_simulator(device: 'Google Pixel 4')
+          end").runner.execute(:test)
+        end.to raise_error(FastlaneCore::Interface::FastlaneError)
       end
 
       it 'raises an error after providing a wrong version of the simulator' do
-        expect(Fastlane::UI).to receive(:user_error!)
-        described_class.new.parse("lane :test do
-          prepare_simulator(device: '#{sim_name} (0.42)')
-        end").runner.execute(:test)
+        expect do
+          described_class.new.parse("lane :test do
+            prepare_simulator(device: '#{sim_name} (0.42)')
+          end").runner.execute(:test)
+        end.to raise_error(FastlaneCore::Interface::FastlaneError)
       end
     end
   end
