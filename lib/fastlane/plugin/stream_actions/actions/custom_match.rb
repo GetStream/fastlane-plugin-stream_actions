@@ -14,7 +14,7 @@ module Fastlane
             api_key: params[:api_key],
             type: type,
             app_identifier: params[:app_identifier],
-            readonly: params[:readonly] || true,
+            readonly: params[:readonly],
             force_for_new_devices: !other_action.is_ci
           )
         end
