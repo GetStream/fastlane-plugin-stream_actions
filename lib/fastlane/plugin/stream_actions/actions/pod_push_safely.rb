@@ -10,9 +10,13 @@ module Fastlane
         other_action.pod_push(path: params[:podspec], allow_warnings: true, synchronous: params[:sync])
       rescue StandardError => e
         UI.message(e)
-        UI.message("pod_push failed for #{params[:podspec]}. Waiting a minute until retry for trunk to get updated...")
-        sleep(60) # sleep for a minute, wait until trunk gets updates
-        pod_push_safely(params)
+        if e.include?('Unable to accept duplicate entry')
+          UI.message("pod_push passed for #{params[:podspec]} on previous run. Skipping further attempts.")
+        else
+          UI.message("pod_push failed for #{params[:podspec]}. Waiting a minute until retry for trunk to get updated...")
+          sleep(60) # sleep for a minute, wait until trunk gets updates
+          pod_push_safely(params)
+        end
       end
 
       #####################################################
