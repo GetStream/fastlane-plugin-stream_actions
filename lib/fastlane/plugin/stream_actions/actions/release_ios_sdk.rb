@@ -15,14 +15,17 @@ module Fastlane
 
         ensure_release_tag_is_new(version_number)
 
-        changes = other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
+        changes = other_action.touch_changelog(
+          release_version: version_number,
+          github_repo: params[:github_repo],
+          changelog_path: params[:changelog_path]
+        )
 
         podspecs = []
         params[:sdk_names].each { |sdk| podspecs << "#{sdk}.podspec" }
 
         podspecs.each do |podspec|
           UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
-          other_action.pod_lib_lint(podspec: podspec, allow_warnings: true) unless params[:skip_pod_list]
           other_action.version_bump_podspec(path: podspec, version_number: version_number)
         end
 
@@ -118,12 +121,6 @@ module Fastlane
             description: 'Ensure git branch is main',
             is_string: false,
             default_value: true
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :skip_pod_list,
-            description: 'Skip pod lib lint action',
-            is_string: false,
-            default_value: false
           ),
           FastlaneCore::ConfigItem.new(
             key: :pod_sync,
