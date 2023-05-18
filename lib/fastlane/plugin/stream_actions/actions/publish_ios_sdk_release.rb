@@ -1,22 +1,12 @@
 module Fastlane
   module Actions
-    class ReleaseIosSdkAction < Action
+    class PublishIosSdkReleaseAction < Action
       def self.run(params)
         ensure_everything_is_set_up(params)
+        ensure_release_tag_is_new(params[:version])
 
-        version_number = ''
-        params[:sdk_names].each do |target|
-          version_number = other_action.increment_version_number_in_plist(
-            target: target,
-            version_number: params[:version],
-            bump_type: params[:bump_type]
-          )
-        end
-
-        ensure_release_tag_is_new(version_number)
-
-        changes = other_action.touch_changelog(
-          release_version: version_number,
+        changes = other_action.read_changelog(
+          version: params[:version],
           github_repo: params[:github_repo],
           changelog_path: params[:changelog_path]
         )
@@ -24,34 +14,23 @@ module Fastlane
         podspecs = []
         params[:sdk_names].each { |sdk| podspecs << "#{sdk}.podspec" }
 
-        podspecs.each do |podspec|
-          UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
-          other_action.version_bump_podspec(path: podspec, version_number: version_number)
-        end
-
-        commit_changes(version_number)
-
         release_details = other_action.set_github_release(
           repository_name: params[:github_repo],
           api_token: params[:github_token],
-          name: version_number,
-          tag_name: version_number,
+          name: params[:version],
+          tag_name: params[:version],
           description: changes,
           commitish: ENV['BRANCH_NAME'] || other_action.git_branch
         )
 
         podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec, sync: params[:pod_sync] & true) }
 
-        UI.success("Github release v#{version_number} was created, please visit #{release_details['html_url']} to see it! 🚢")
+        UI.success("Github release v#{params[:version]} was created, please visit #{release_details['html_url']} to see it! 🚢")
       end
 
       def self.ensure_everything_is_set_up(params)
-        other_action.ensure_git_branch(branch: 'main') if params[:check_release_branch]
+        other_action.ensure_git_branch(branch: 'main') if params[:check_branch]
         other_action.ensure_git_status_clean if params[:check_git_status]
-
-        if params[:version].nil? && !["patch", "minor", "major"].include?(params[:bump_type])
-          UI.user_error!("Please use type parameter with one of the options: type:patch, type:minor, type:major")
-        end
       end
 
       def self.ensure_release_tag_is_new(version_number)
@@ -62,34 +41,19 @@ module Fastlane
         end
       end
 
-      def self.commit_changes(version_number)
-        sh("git add -A")
-        UI.user_error!("Not committing changes") unless other_action.prompt(text: "Will commit changes. All looking good?", boolean: true)
-
-        sh("git commit -m 'Bump #{version_number}'")
-        UI.user_error!("Not pushing changes") unless other_action.prompt(text: "Will push changes. All looking good?", boolean: true)
-
-        other_action.push_to_git_remote(tags: true)
-      end
-
       #####################################################
       # @!group Documentation
       #####################################################
 
       def self.description
-        'Releases iOS SDKs to GitHub and CocoaPods'
+        'Publishes iOS SDKs to GitHub and CocoaPods'
       end
 
       def self.available_options
         [
           FastlaneCore::ConfigItem.new(
             key: :version,
-            description: 'Release version (not required if release type is set)',
-            optional: true
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :bump_type,
-            description: 'Release type (not required if release version is set)',
+            description: 'Release version',
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
@@ -117,7 +81,7 @@ module Fastlane
             default_value: true
           ),
           FastlaneCore::ConfigItem.new(
-            key: :check_release_branch,
+            key: :check_branch,
             description: 'Ensure git branch is main',
             is_string: false,
             default_value: true
