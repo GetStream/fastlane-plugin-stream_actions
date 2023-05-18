@@ -7,7 +7,6 @@ module Fastlane
 
         changes = other_action.read_changelog(
           version: params[:version],
-          github_repo: params[:github_repo],
           changelog_path: params[:changelog_path]
         )
 
