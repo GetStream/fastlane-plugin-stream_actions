@@ -1,37 +1,39 @@
 module Fastlane
   module Actions
-    class IosSdkReleaseAction < Action
+    class ReleaseIosSdkAction < Action
       def self.run(params)
-        ensure_everything_is_set_up(params)
-
-        version_number = ''
-        params[:sdk_names].each do |target|
-          version_number = other_action.increment_version_number_in_plist(
-            target: target,
-            version_number: params[:version],
-            bump_type: params[:bump_type]
-          )
-        end
-
-        ensure_release_tag_is_new(version_number)
-
-        changes = other_action.touch_changelog(
-          release_version: version_number,
-          github_repo: params[:github_repo],
-          changelog_path: params[:changelog_path]
-        )
-
         podspecs = []
         params[:sdk_names].each { |sdk| podspecs << "#{sdk}.podspec" }
 
-        podspecs.each do |podspec|
-          UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
-          other_action.version_bump_podspec(path: podspec, version_number: version_number)
+        if params[:update_version_numbers]
+          ensure_everything_is_set_up(params)
+
+          version_number = ''
+          params[:sdk_names].each do |target|
+            version_number = other_action.increment_version_number_in_plist(
+              target: target,
+              version_number: params[:version],
+              bump_type: params[:bump_type]
+            )
+          end
+
+          ensure_release_tag_is_new(version_number)
+
+          changes = other_action.touch_changelog(
+            release_version: version_number,
+            github_repo: params[:github_repo],
+            changelog_path: params[:changelog_path]
+          )
+
+          podspecs.each do |podspec|
+            UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
+            other_action.version_bump_podspec(path: podspec, version_number: version_number)
+          end
+
+          sh("git checkout -b release/#{version_number}") if params[:create_pull_request]
+
+          commit_changes(version_number)
         end
-
-        sh("git checkout -b release/#{version_number}") if params[:create_pull_request]
-
-        commit_changes(version_number)
 
         if params[:create_pull_request]
           create_pull_request(
@@ -43,24 +45,37 @@ module Fastlane
             body: changes.to_s
           )
           UI.success("Successfully started release #{version_number}! 🚢")
-        else
-          other_action.publish_ios_sdk_release(
+        elsif params[:publish_release]
+          version_number ||= params[:version]
+
+          ensure_everything_is_set_up(params)
+          ensure_release_tag_is_new(version_number)
+
+          changes ||= other_action.read_changelog(
             version: version_number,
-            sdk_names: params[:sdk_names],
-            github_repo: params[:github_repo],
-            github_token: params[:github_token],
-            check_git_status: params[:check_git_status],
-            check_branch: params[:check_branch],
             changelog_path: params[:changelog_path]
           )
+
+          release_details = other_action.set_github_release(
+            repository_name: params[:github_repo],
+            api_token: params[:github_token],
+            name: version_number,
+            tag_name: version_number,
+            description: changes,
+            commitish: ENV['BRANCH_NAME'] || other_action.git_branch
+          )
+
+          podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
+
+          UI.success("Github release v#{version_number} was created, please visit #{release_details['html_url']} to see it! 🚢")
         end
       end
 
       def self.ensure_everything_is_set_up(params)
-        other_action.ensure_git_branch(branch: 'develop') if params[:check_branch]
-        other_action.ensure_git_status_clean if params[:check_git_status]
+        other_action.ensure_git_branch(branch: 'main') if params[:publish_release]
+        other_action.ensure_git_status_clean
 
-        UI.user_error!('Please set GITHUB_TOKEN environment value.') if ENV['GITHUB_TOKEN'].nil?
+        UI.user_error!('Please set GITHUB_TOKEN environment value.') if params[:github_token].nil?
 
         if params[:version].nil? && !["patch", "minor", "major"].include?(params[:bump_type])
           UI.user_error!("Please use type parameter with one of the options: type:patch, type:minor, type:major")
@@ -124,18 +139,6 @@ module Fastlane
             description: 'GITHUB_TOKEN environment variable'
           ),
           FastlaneCore::ConfigItem.new(
-            key: :check_git_status,
-            description: 'Ensure git status is clean',
-            is_string: false,
-            default_value: true
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :check_branch,
-            description: 'Ensure git branch is develop',
-            is_string: false,
-            default_value: true
-          ),
-          FastlaneCore::ConfigItem.new(
             key: :changelog_path,
             env_name: 'FL_CHANGELOG_PATH',
             description: 'The path to your project CHANGELOG.md',
@@ -144,9 +147,21 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :create_pull_request,
-            description: 'Create pull request? Otherwise, will release straight away',
+            description: 'Create pull request from release branch to main',
             is_string: false,
-            default_value: true
+            default_value: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :update_version_numbers,
+            description: 'Update release version numbers in podspecs and plist files',
+            is_string: false,
+            default_value: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :publish_release,
+            description: 'Publish release to GitHub and CocoaPods',
+            is_string: false,
+            default_value: false
           )
         ]
       end
