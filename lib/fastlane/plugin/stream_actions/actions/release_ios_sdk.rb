@@ -3,7 +3,9 @@ module Fastlane
     class ReleaseIosSdkAction < Action
       def self.run(params)
         podspecs = []
-        params[:sdk_names].each { |sdk| podspecs << "#{sdk}.podspec" }
+        (params[:podspec_names] || params[:sdk_names]).each do |sdk|
+          podspecs << (sdk.include?('.podspec') ? sdk : "#{sdk}.podspec")
+        end
 
         if params[:update_version_numbers]
           ensure_everything_is_set_up(params)
@@ -29,6 +31,8 @@ module Fastlane
             UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
             other_action.version_bump_podspec(path: podspec, version_number: version_number)
           end
+
+          params[:extra_changes].call(version_number) if params[:extra_changes]
 
           sh("git checkout -b release/#{version_number}") if params[:create_pull_request]
 
@@ -62,7 +66,8 @@ module Fastlane
             name: version_number,
             tag_name: version_number,
             description: changes,
-            commitish: ENV['BRANCH_NAME'] || other_action.git_branch
+            commitish: ENV['BRANCH_NAME'] || other_action.git_branch,
+            upload_assets: params[:upload_assets]
           )
 
           podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
@@ -73,7 +78,7 @@ module Fastlane
 
       def self.ensure_everything_is_set_up(params)
         other_action.ensure_git_branch(branch: 'main') if params[:publish_release]
-        other_action.ensure_git_status_clean
+        other_action.ensure_git_status_clean unless params[:skip_git_status_check]
 
         UI.user_error!('Please set GITHUB_TOKEN environment value.') if params[:github_token].nil?
 
@@ -129,6 +134,12 @@ module Fastlane
             end
           ),
           FastlaneCore::ConfigItem.new(
+            key: :podspec_names,
+            description: 'Podspec names to release',
+            is_string: false,
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_REPOSITORY',
             key: :github_repo,
             description: 'Github repository name'
@@ -139,11 +150,23 @@ module Fastlane
             description: 'GITHUB_TOKEN environment variable'
           ),
           FastlaneCore::ConfigItem.new(
+            key: :skip_git_status_check,
+            description: 'Skip git status check',
+            is_string: false,
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
             key: :changelog_path,
             env_name: 'FL_CHANGELOG_PATH',
             description: 'The path to your project CHANGELOG.md',
             is_string: true,
             default_value: './CHANGELOG.md'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :extra_changes,
+            description: 'Lambda with extra changes to be commited to the release',
+            is_string: false,
+            default_value: false
           ),
           FastlaneCore::ConfigItem.new(
             key: :create_pull_request,
@@ -162,6 +185,12 @@ module Fastlane
             description: 'Publish release to GitHub and CocoaPods',
             is_string: false,
             default_value: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :upload_assets,
+            description: 'Path to assets to be uploaded with the release',
+            is_string: false,
+            optional: true
           )
         ]
       end
