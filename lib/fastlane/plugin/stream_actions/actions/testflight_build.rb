@@ -6,7 +6,11 @@ module Fastlane
           app_identifier: params[:app_identifier],
           api_key: params[:api_key]
         ) + 1
-        other_action.increment_build_number_in_plist(build_number: build_number.to_s, target: params[:app_target])
+
+        targets = params[:extensions] << params[:app_target]
+        targets.each do |target|
+          other_action.increment_build_number_in_plist(build_number: build_number.to_s, target: target)
+        end
 
         other_action.gym(
           project: params[:xcode_project],
@@ -91,6 +95,12 @@ module Fastlane
             verify_block: proc do |target|
               UI.user_error!('DemoApp target name has to be specified') if target.nil? || target.empty?
             end
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :extensions,
+            description: 'Extensions/dependencies target names to bump build number',
+            is_string: false,
+            default_value: []
           ),
           FastlaneCore::ConfigItem.new(
             key: :app_identifier,
