@@ -7,37 +7,35 @@ module Fastlane
           podspecs << (sdk.include?('.podspec') ? sdk : "#{sdk}.podspec")
         end
 
-        if params[:update_version_numbers]
-          ensure_everything_is_set_up(params)
+        ensure_everything_is_set_up(params)
 
-          version_number = ''
-          params[:sdk_names].each do |target|
-            version_number = other_action.increment_version_number_in_plist(
-              target: target,
-              version_number: params[:version],
-              bump_type: params[:bump_type]
-            )
-          end
-
-          ensure_release_tag_is_new(version_number)
-
-          changes = other_action.touch_changelog(
-            release_version: version_number,
-            github_repo: params[:github_repo],
-            changelog_path: params[:changelog_path]
+        version_number = ''
+        params[:sdk_names].each do |target|
+          version_number = other_action.increment_version_number_in_plist(
+            target: target,
+            version_number: params[:version],
+            bump_type: params[:bump_type]
           )
-
-          podspecs.each do |podspec|
-            UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
-            other_action.version_bump_podspec(path: podspec, version_number: version_number)
-          end
-
-          params[:extra_changes].call(version_number) if params[:extra_changes]
-
-          sh("git checkout -b release/#{version_number}") if params[:create_pull_request]
-
-          commit_changes(version_number)
         end
+
+        ensure_release_tag_is_new(version_number)
+
+        changes = other_action.touch_changelog(
+          release_version: version_number,
+          github_repo: params[:github_repo],
+          changelog_path: params[:changelog_path]
+        )
+
+        podspecs.each do |podspec|
+          UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
+          other_action.version_bump_podspec(path: podspec, version_number: version_number)
+        end
+
+        params[:extra_changes].call(version_number) if params[:extra_changes]
+
+        sh("git checkout -b release/#{version_number}") if params[:create_pull_request]
+
+        commit_changes(version_number)
 
         if params[:create_pull_request]
           create_pull_request(
@@ -48,39 +46,14 @@ module Fastlane
             base: 'main',
             body: changes.to_s
           )
-          UI.success("Successfully started release #{version_number}! 🚢")
-        elsif params[:publish_release]
-          version_number ||= params[:version]
-
-          ensure_everything_is_set_up(params)
-          ensure_release_tag_is_new(version_number)
-
-          changes ||= other_action.read_changelog(
-            version: version_number,
-            changelog_path: params[:changelog_path]
-          )
-
-          release_details = other_action.set_github_release(
-            repository_name: params[:github_repo],
-            api_token: params[:github_token],
-            name: version_number,
-            tag_name: version_number,
-            description: changes,
-            commitish: ENV['BRANCH_NAME'] || other_action.git_branch,
-            upload_assets: params[:upload_assets]
-          )
-
-          podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
-
-          UI.success("Github release v#{version_number} was created, please visit #{release_details['html_url']} to see it! 🚢")
         end
+
+        UI.success("Successfully started release #{version_number}! 🚢")
+        version_number
       end
 
       def self.ensure_everything_is_set_up(params)
-        other_action.ensure_git_branch(branch: 'main') if params[:publish_release]
         other_action.ensure_git_status_clean unless params[:skip_git_status_check]
-
-        UI.user_error!('Please set GITHUB_TOKEN environment value.') if params[:github_token].nil?
 
         if params[:version].nil? && !["patch", "minor", "major"].include?(params[:bump_type])
           UI.user_error!("Please use type parameter with one of the options: type:patch, type:minor, type:major")
@@ -173,24 +146,6 @@ module Fastlane
             description: 'Create pull request from release branch to main',
             is_string: false,
             default_value: false
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :update_version_numbers,
-            description: 'Update release version numbers in podspecs and plist files',
-            is_string: false,
-            default_value: false
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :publish_release,
-            description: 'Publish release to GitHub and CocoaPods',
-            is_string: false,
-            default_value: false
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :upload_assets,
-            description: 'Path to assets to be uploaded with the release',
-            is_string: false,
-            optional: true
           )
         ]
       end
