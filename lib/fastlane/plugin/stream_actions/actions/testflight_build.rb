@@ -45,6 +45,8 @@ module Fastlane
       end
 
       def self.testflight_instructions(params)
+        return "This is the official #{params[:app_target]} sample app" unless params[:sdk_target]
+
         version_number = other_action.get_version_number(target: params[:sdk_target])[/\d+\.\d+\.\d/]
         if ENV['GITHUB_EVENT_NAME'] == 'pull_request'
           sha = ENV['GITHUB_SHA'] ? ENV['GITHUB_SHA'][0..8] : sh('git rev-parse --short HEAD')
@@ -85,9 +87,7 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :sdk_target,
             description: 'SDK target name',
-            verify_block: proc do |target|
-              UI.user_error!('SDK target name has to be specified') if target.nil? || target.empty?
-            end
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :app_target,
