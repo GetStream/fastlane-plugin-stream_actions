@@ -38,7 +38,7 @@ module Fastlane
         commit_changes(version_number)
 
         if params[:create_pull_request]
-          create_pull_request(
+          other_action.create_pull_request(
             api_token: params[:github_token],
             repo: params[:github_repo],
             title: "#{version_number} Release",
