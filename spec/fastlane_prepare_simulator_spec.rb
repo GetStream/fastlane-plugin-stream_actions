@@ -7,7 +7,8 @@ describe Fastlane do
         result = described_class.new.parse("lane :test do
           prepare_simulator(device: '#{sim_name}')
         end").runner.execute(:test)
-        expect(result).to be(true)
+        expect(result).not_to be_nil
+        expect(result).not_to be_empty
       end
 
       it 'verifies that simulator with version can be prepared' do
@@ -15,7 +16,8 @@ describe Fastlane do
         result = described_class.new.parse("lane :test do
           prepare_simulator(device: '#{sim_name} (#{sim.os_version})')
         end").runner.execute(:test)
-        expect(result).to be(true)
+        expect(result).not_to be_nil
+        expect(result).not_to be_empty
       end
 
       it 'verifies that simulator can be reset' do

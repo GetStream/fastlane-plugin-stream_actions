@@ -25,6 +25,7 @@ module Fastlane
         sim.reset if sim && params[:reset]
         sh("xcrun simctl bootstatus #{udid} -b")
         UI.success("Simulator #{device_name} (#{ios_version}) is ready")
+        udid
       end
 
       #####################################################

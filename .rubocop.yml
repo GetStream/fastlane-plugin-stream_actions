@@ -186,3 +186,5 @@ RSpec/MessageSpies:
   Enabled: false
 RSpec/AnyInstance:
   Enabled: false
+RSpec/MultipleExpectations:
+  Enabled: false
