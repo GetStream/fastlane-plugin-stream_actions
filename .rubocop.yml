@@ -57,6 +57,8 @@ Style/EmptyMethod:
 Lint/UselessAssignment:
   Exclude:
   - "**/spec/**/*"
+Lint/OrAssignmentToConstant:
+  Enabled: false
 Require/MissingRequireStatement:
   Enabled: false
 Layout/FirstHashElementIndentation:
