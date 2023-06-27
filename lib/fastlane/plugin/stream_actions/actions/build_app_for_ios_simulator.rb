@@ -87,15 +87,18 @@ module Fastlane
 
         app_path = File.directory?(derived_data_app_path) ? derived_data_app_path : products_app_path
 
-        if params[:output_directory]
-          FileUtils.mkdir_p(params[:output_directory])
-          FileUtils.cp_r(app_path, params[:output_directory])
-          "#{params[:output_directory]}/#{params[:scheme]}.app"
-        else
-          FileUtils.rm_rf("#{params[:scheme]}.app")
-          FileUtils.cp_r(app_path, './')
-          "./#{params[:scheme]}.app"
-        end
+        new_path =
+          if params[:output_directory]
+            FileUtils.mkdir_p(params[:output_directory])
+            FileUtils.cp_r(app_path, params[:output_directory])
+            "#{params[:output_directory]}/#{params[:scheme]}.app"
+          else
+            FileUtils.rm_rf("#{params[:scheme]}.app")
+            FileUtils.cp_r(app_path, './')
+            "./#{params[:scheme]}.app"
+          end
+
+        File.expand_path(new_path)
       end
 
       def self.verify_destination(params)
