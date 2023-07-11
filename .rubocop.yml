@@ -40,6 +40,8 @@ Style/NumericPredicate:
   Enabled: false
 Metrics/BlockLength:
   Enabled: false
+Metrics/BlockNesting:
+  Enabled: false
 Metrics/ModuleLength:
   Enabled: false
 Naming/VariableNumber:

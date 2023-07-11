@@ -161,7 +161,7 @@ module Fastlane
           ['project', 'Path to the project file'],
           ['scheme', "The project's scheme. Make sure it's marked as `Shared`"],
           ['platform', "Use a custom simulator destination for building the app (iOS, tvOS or watchOS)"],
-          ['configuration', 'The configuration to use when building the app. Defaults to "Release"'],
+          ['configuration', 'The configuration to use when building the app. Defaults to "Debug"'],
           ['derived_data_path', 'The directory where built products and other derived data will go'],
           ['result_bundle_path', 'Path to the result bundle directory to create'],
           ['buildlog_path', 'The directory where to store the build log'],
