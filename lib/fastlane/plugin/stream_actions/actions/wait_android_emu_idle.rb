@@ -1,6 +1,6 @@
 module Fastlane
   module Actions
-    class WaitAndroidEmuIdle < Action
+    class WaitAndroidEmuIdleAction < Action
       def self.run(params)
         start_time = Time.now
         load_threshold = 1.0
