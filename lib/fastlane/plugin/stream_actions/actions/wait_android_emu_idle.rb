@@ -3,37 +3,25 @@ module Fastlane
     class WaitAndroidEmuIdleAction < Action
       def self.run(params)
         start_time = Time.now
-        load_threshold = 1.0
         UI.important("Start waiting until device is idle (#{Time.now})")
-        adb_command = 'adb shell uptime | cut -d , -f 3 | cut -f 2 -d :'
-        load = `#{adb_command}`.strip.to_f
+        check_emu_uptime = 'adb shell uptime | cut -d , -f 3 | cut -f 2 -d :'
+        current_load_value = `#{check_emu_uptime}`.strip.to_f
 
-        end_time = start_time + 1800
-        while load > load_threshold && Time.now < end_time
-          if load < 4
-            `adb shell dumpsys window | grep -E "mCurrentFocus.*Application Not Responding" || echo`
-            anr_package = `adb shell dumpsys window | grep -E "mCurrentFocus.*Application Not Responding" | cut -f 2 -d : | sed -e "s/}//" -e "s/^ *//"`.strip
-            unless anr_package.empty?
-              UI.important("ANR on screen for: #{anr_package}. Restarting it.")
-              begin
-                `adb shell su 0 killall #{anr_package}`
-              rescue StandardError => e
-                UI.error(e)
-                # Fallback to click if kill didn't work. This location is for a 1080x1920 screen
-                `adb shell input tap 540 935 || echo`
-              end
-
-              if anr_package == 'com.android.systemui'
-                `adb shell am start-service -n com.android.systemui/.SystemUIService || echo`
-              end
-            end
+        end_time = start_time + params[:timeout]
+        while current_load_value > params[:load_threshold] && Time.now < end_time
+          not_responding_package = `adb shell dumpsys window | grep -E "mCurrentFocus.*Application Not Responding" | cut -f 2 -d : | sed -e "s/}//" -e "s/^ *//"`.strip
+          if not_responding_package == 'com.android.systemui'
+            UI.important("Trying to dismiss not responding #{not_responding_package} dialog")
+            `adb shell input keyevent KEYCODE_ENTER`
+            `adb shell input keyevent KEYCODE_DPAD_DOWN`
+            `adb shell input keyevent KEYCODE_ENTER`
           end
 
           sleep(10)
-          load = `#{adb_command}`.strip.to_f
+          current_load_value = `#{check_emu_uptime}`.strip.to_f
         end
 
-        UI.important('Reached timeout before device is idle 😕') if load > load_threshold
+        UI.important('Reached timeout before device is idle 😕') if current_load_value > params[:load_threshold]
         UI.important("Waited until device is idle for #{(Time.now - start_time).to_i} seconds ⌛️")
       end
 
@@ -46,7 +34,20 @@ module Fastlane
       end
 
       def self.available_options
-        []
+        [
+          FastlaneCore::ConfigItem.new(
+            key: :load_threshold,
+            description: 'Load threshold to consider device idle',
+            is_string: false,
+            default_value: 1.0
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :timeout,
+            description: 'Timeout in seconds to wait for device to be idle',
+            is_string: false,
+            default_value: 1000
+          )
+        ]
       end
 
       def self.supported?(_platform)
