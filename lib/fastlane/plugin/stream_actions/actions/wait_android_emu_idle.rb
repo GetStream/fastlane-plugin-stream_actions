@@ -9,14 +9,16 @@ module Fastlane
 
         end_time = start_time + params[:timeout]
         while current_uptime_value > params[:load_threshold] && Time.now < end_time
-          UI.important("Current uptime value: #{current_uptime_value} 👀")
-
+          UI.important("Uptime value: #{current_uptime_value} > #{params[:load_threshold]}")
           not_responding_package = `adb shell dumpsys window | grep -E "mCurrentFocus.*Application Not Responding" | cut -f 2 -d : | sed -e "s/}//" -e "s/^ *//"`.strip
-          if not_responding_package == 'com.android.systemui'
-            UI.important("Trying to dismiss not responding #{not_responding_package} dialog")
+          unless not_responding_package.empty?
+            UI.important("Closing not responding `#{not_responding_package}`")
             `adb shell input keyevent KEYCODE_ENTER`
-            `adb shell input keyevent KEYCODE_DPAD_DOWN`
-            `adb shell input keyevent KEYCODE_ENTER`
+
+            if not_responding_package == 'com.android.systemui'
+              `adb shell input keyevent KEYCODE_DPAD_DOWN`
+              `adb shell input keyevent KEYCODE_ENTER`
+            end
           end
 
           sleep(10)
