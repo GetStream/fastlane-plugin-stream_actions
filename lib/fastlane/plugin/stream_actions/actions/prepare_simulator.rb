@@ -10,6 +10,7 @@ module Fastlane
 
         if ios_version.nil?
           sim = simulators.filter { |d| d.name == params[:device] }.max_by(&:os_version)
+          ios_version = sim.os_version if sim
         else
           sim = simulators.detect { |d| "#{d.name} (#{d.os_version})" == params[:device] }
           udid = `xcrun simctl create '#{device_name}' '#{device_name}' 'iOS#{ios_version.delete('()')}'` if sim.nil?
