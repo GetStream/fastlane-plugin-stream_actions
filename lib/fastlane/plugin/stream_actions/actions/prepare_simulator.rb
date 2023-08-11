@@ -13,10 +13,10 @@ module Fastlane
           ios_version = sim.os_version if sim
         else
           sim = simulators.detect { |d| "#{d.name} (#{d.os_version})" == params[:device] }
-          udid = `xcrun simctl create '#{device_name}' '#{device_name}' 'iOS#{ios_version.delete('()')}'` if sim.nil?
+          udid = `xcrun simctl create '#{device_name}' '#{device_name}' 'iOS#{ios_version.delete('()')}'`.to_s.strip if sim.nil?
         end
 
-        udid = sim.udid unless sim.nil?
+        udid = sim.udid.to_s.strip unless sim.nil?
 
         if sim.nil? && (udid.nil? || udid.empty?)
           simulators.map! { |d| "#{d.name} (#{d.os_version})" }.join("\n")
