@@ -4,16 +4,17 @@ module Fastlane
       def self.run(params)
         simulators = FastlaneCore::Simulator.all
         version_regex = /\((\d+\.)?(\d+\.)?(\*|\d+)\)/
-        ios_version = params[:device][version_regex]
+        ios_version_with_brackets = params[:device][version_regex]
         device_name = params[:device].sub(version_regex, '').strip
         udid = nil
 
-        if ios_version.nil?
+        if ios_version_with_brackets.nil?
           sim = simulators.filter { |d| d.name == params[:device] }.max_by(&:os_version)
-          ios_version = sim.os_version if sim
+          ios_version_with_brackets = "(#{sim.os_version})" if sim
         else
+          ios_version = ios_version_with_brackets.delete('()')
           sim = simulators.detect { |d| "#{d.name} (#{d.os_version})" == params[:device] }
-          udid = `xcrun simctl create '#{device_name}' '#{device_name}' 'iOS#{ios_version.delete('()')}'`.to_s.strip if sim.nil?
+          udid = `xcrun simctl create '#{device_name}' '#{device_name}' 'iOS#{ios_version}'`.to_s.strip if sim.nil?
         end
 
         udid = sim.udid.to_s.strip unless sim.nil?
@@ -25,7 +26,7 @@ module Fastlane
 
         sim.reset if sim && params[:reset]
         sh("xcrun simctl bootstatus #{udid} -b")
-        UI.success("Simulator #{device_name} (#{ios_version}) is ready")
+        UI.success("Simulator #{device_name} #{ios_version_with_brackets} is ready")
         udid
       end
 
