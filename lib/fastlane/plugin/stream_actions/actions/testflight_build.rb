@@ -21,7 +21,7 @@ module Fastlane
         other_action.gym(
           project: params[:xcode_project],
           scheme: params[:app_target],
-          configuration: 'Release',
+          configuration: params[:configuration],
           export_method: 'app-store',
           export_options: params[:testflight_export_options],
           clean: true,
@@ -129,6 +129,12 @@ module Fastlane
             env_name: 'GITHUB_PR_NUM',
             key: :github_pr_num,
             description: 'GitHub PR number'
+          ),
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_PR_NUM',
+            key: :configuration,
+            description: 'Build configuration',
+            default_value: 'Release'
           )
         ]
       end
