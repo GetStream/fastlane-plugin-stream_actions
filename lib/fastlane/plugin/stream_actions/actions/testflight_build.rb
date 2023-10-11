@@ -26,7 +26,8 @@ module Fastlane
           export_options: params[:testflight_export_options],
           clean: true,
           include_symbols: true,
-          output_directory: params[:output_directory]
+          output_directory: params[:output_directory],
+          xcargs: params[:xcargs]
         )
 
         current_branch = ENV['BRANCH_NAME'] || other_action.git_branch
@@ -124,6 +125,10 @@ module Fastlane
             key: :output_directory,
             description: 'Output directory for the build',
             default_value: 'archives'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :xcargs,
+            description: 'Pass additional arguments to xcodebuild for the build phase'
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_PR_NUM',
