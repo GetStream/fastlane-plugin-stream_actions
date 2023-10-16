@@ -128,7 +128,8 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :xcargs,
-            description: 'Pass additional arguments to xcodebuild for the build phase'
+            description: 'Pass additional arguments to xcodebuild for the build phase',
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_PR_NUM',
