@@ -33,7 +33,7 @@ module Fastlane
       end
 
       def self.ensure_everything_is_set_up(params)
-        # other_action.ensure_git_branch(branch: 'main')
+        other_action.ensure_git_branch(branch: 'main')
         other_action.ensure_git_status_clean unless params[:skip_git_status_check]
       end
 
