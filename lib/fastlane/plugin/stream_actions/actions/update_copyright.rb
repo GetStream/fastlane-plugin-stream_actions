@@ -10,6 +10,7 @@ module Fastlane
         end
 
         source_files.each do |file_path|
+          UI.message("👀 Searching for copyright header in #{File.basename(file_path)}")
           old_content = File.read(file_path)
           match = old_content.match(/Copyright © (\d{4}) Stream.io/)
           next if !match || match[1] == new_year
@@ -18,7 +19,7 @@ module Fastlane
           new_content = old_content.gsub("Copyright © #{old_year}", "Copyright © #{new_year}")
 
           File.write(file_path, new_content)
-          UI.success("Updated copyright year in #{File.basename(file_path)}")
+          UI.success("✅ Updated copyright header in #{File.basename(file_path)}")
         end
       end
 
