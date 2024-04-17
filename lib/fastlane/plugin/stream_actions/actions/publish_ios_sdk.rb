@@ -2,11 +2,6 @@ module Fastlane
   module Actions
     class PublishIosSdkAction < Action
       def self.run(params)
-        podspecs = []
-        (params[:podspec_names] || params[:sdk_names]).each do |sdk|
-          podspecs << (sdk.include?('.podspec') ? sdk : "#{sdk}.podspec")
-        end
-
         version_number = params[:version]
 
         ensure_everything_is_set_up(params)
@@ -24,7 +19,13 @@ module Fastlane
           upload_assets: params[:upload_assets]
         )
 
-        podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
+        unless params[:skip_pods]
+          podspecs = []
+          (params[:podspec_names] || params[:sdk_names]).each do |sdk|
+            podspecs << (sdk.include?('.podspec') ? sdk : "#{sdk}.podspec")
+          end
+          podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
+        end
 
         UI.success("Github release v#{version_number} was created, please visit #{release_details['html_url']} to see it! 🚢")
       end
@@ -63,6 +64,13 @@ module Fastlane
             verify_block: proc do |sdks|
               UI.user_error!("SDK names array has to be specified") unless sdks.kind_of?(Array) && sdks.size.positive?
             end
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :skip_pods,
+            description: 'Skip release to CocoaPods?',
+            is_string: false,
+            optional: true,
+            default_value: false
           ),
           FastlaneCore::ConfigItem.new(
             key: :podspec_names,
