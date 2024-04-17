@@ -12,7 +12,7 @@ module Fastlane
         ensure_everything_is_set_up(params)
         ensure_release_tag_is_new(version_number)
 
-        changes = params[:skip_changelog] ? '' : other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
+        changes = params[:changelog] || other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
 
         release_details = other_action.set_github_release(
           repository_name: params[:github_repo],
@@ -87,18 +87,17 @@ module Fastlane
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
-            key: :skip_changelog,
-            description: 'Skip changelog update',
-            is_string: false,
-            optional: true,
-            default_value: false
-          ),
-          FastlaneCore::ConfigItem.new(
             key: :changelog_path,
             env_name: 'FL_CHANGELOG_PATH',
             description: 'The path to your project CHANGELOG.md',
             is_string: true,
             default_value: './CHANGELOG.md'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :changelog,
+            description: 'Static changelog',
+            is_string: true,
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :upload_assets,
