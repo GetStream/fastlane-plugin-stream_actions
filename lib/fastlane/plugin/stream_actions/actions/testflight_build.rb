@@ -23,7 +23,7 @@ module Fastlane
           scheme: params[:app_target],
           configuration: params[:configuration],
           export_method: params[:export_method],
-          export_options: params[:export_options],
+          export_options: params[:export_options] || params[:export_options_plist],
           clean: true,
           include_symbols: true,
           output_directory: params[:output_directory],
@@ -122,9 +122,15 @@ module Fastlane
             default_value: 'app-store'
           ),
           FastlaneCore::ConfigItem.new(
-            key: :export_options,
-            description: 'We have to pass manually since `gym` detects profiles from `match` and that breaks it',
+            key: :export_options_plist,
+            description: 'Path to plist file with export options. We have to pass manually since `gym` detects profiles from `match` and that breaks it',
             default_value: './fastlane/testflight_export_options.plist'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :export_options,
+            description: 'Hash with export options. We have to pass manually since `gym` detects profiles from `match` and that breaks it',
+            is_string: false,
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :output_directory,
