@@ -22,8 +22,8 @@ module Fastlane
           project: params[:xcode_project],
           scheme: params[:app_target],
           configuration: params[:configuration],
-          export_method: 'app-store',
-          export_options: params[:testflight_export_options],
+          export_method: params[:export_method],
+          export_options: params[:export_options],
           clean: true,
           include_symbols: true,
           output_directory: params[:output_directory],
@@ -117,7 +117,12 @@ module Fastlane
             end
           ),
           FastlaneCore::ConfigItem.new(
-            key: :testflight_export_options,
+            key: :export_method,
+            description: 'Method used to export the archive',
+            default_value: 'app-store'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :export_options,
             description: 'We have to pass manually since `gym` detects profiles from `match` and that breaks it',
             default_value: './fastlane/testflight_export_options.plist'
           ),
