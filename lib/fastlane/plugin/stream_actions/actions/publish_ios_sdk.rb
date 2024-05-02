@@ -31,7 +31,7 @@ module Fastlane
       end
 
       def self.ensure_everything_is_set_up(params)
-        other_action.ensure_git_branch(branch: 'main')
+        other_action.ensure_git_branch(branch: 'main') unless params[:skip_branch_check]
         other_action.ensure_git_status_clean unless params[:skip_git_status_check]
       end
 
@@ -87,6 +87,12 @@ module Fastlane
             env_name: 'GITHUB_TOKEN',
             key: :github_token,
             description: 'GITHUB_TOKEN environment variable'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :skip_branch_check,
+            description: 'Skip branch check',
+            is_string: false,
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :skip_git_status_check,
