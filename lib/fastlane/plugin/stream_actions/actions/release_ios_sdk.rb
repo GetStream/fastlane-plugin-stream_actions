@@ -70,11 +70,7 @@ module Fastlane
 
       def self.commit_changes(version_number)
         sh("git add -A")
-        UI.user_error!("Not committing changes") unless other_action.prompt(text: "Will commit changes. All looking good?", boolean: true)
-
         sh("git commit -m 'Bump #{version_number}'")
-        UI.user_error!("Not pushing changes") unless other_action.prompt(text: "Will push changes. All looking good?", boolean: true)
-
         other_action.push_to_git_remote(tags: false)
       end
 
