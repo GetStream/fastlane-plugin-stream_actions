@@ -30,7 +30,7 @@ module Fastlane
         launch_id = other_action.allure_api(
           url: params[:url],
           token: params[:token],
-          path: '/launch',
+          path: 'launch',
           http_method: 'POST',
           request_body: body
         )['id']

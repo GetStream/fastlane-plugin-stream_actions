@@ -14,7 +14,7 @@ module Fastlane
         other_action.allure_api(
           url: params[:url],
           token: params[:token],
-          path: "/testplan/#{testplan_id}/sync",
+          path: "testplan/#{testplan_id}/sync",
           http_method: 'POST'
         )
         UI.success("Testplan with id #{testplan_id} synced successfully 🎉")
@@ -27,7 +27,7 @@ module Fastlane
         other_action.allure_api(
           url: params[:url],
           token: params[:token],
-          path: "/testplan/#{testplan_id}/run",
+          path: "testplan/#{testplan_id}/run",
           http_method: 'POST',
           request_body: body
         )

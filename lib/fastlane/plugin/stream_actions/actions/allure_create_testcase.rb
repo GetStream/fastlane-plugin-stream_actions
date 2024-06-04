@@ -7,7 +7,7 @@ module Fastlane
         testcase_id = other_action.allure_api(
           url: params[:url],
           token: params[:token],
-          path: '/testcase',
+          path: 'testcase',
           http_method: 'POST',
           request_body: body
         )['id']

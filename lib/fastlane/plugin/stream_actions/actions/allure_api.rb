@@ -2,7 +2,7 @@ module Fastlane
   module Actions
     class AllureApiAction < Action
       def self.run(params)
-        url = URI("#{params[:url]}/api/rs/#{params[:path]}")
+        url = URI("#{params[:url]}/#{params[:path]}")
         request =
           case params[:http_method].upcase
           when 'GET'
