@@ -5,7 +5,7 @@ module Fastlane
         response = other_action.allure_api(
           url: params[:url],
           token: params[:token],
-          path: "/testplan/?projectId=#{params[:project_id]}",
+          path: "testplan/?projectId=#{params[:project_id]}",
           http_method: 'GET'
         )
 
