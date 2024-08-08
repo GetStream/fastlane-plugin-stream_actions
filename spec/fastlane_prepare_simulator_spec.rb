@@ -1,7 +1,7 @@
 describe Fastlane do
   describe Fastlane::FastFile do
     describe 'Prepare Simulator Action' do
-      let(:sim_name) { 'iPhone 14 Pro' }
+      let(:sim_name) { 'iPhone 15 Pro' }
 
       it 'verifies that simulator without version can be prepared' do
         result = described_class.new.parse("lane :test do

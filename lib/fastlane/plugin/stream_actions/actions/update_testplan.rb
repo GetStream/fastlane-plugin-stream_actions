@@ -45,7 +45,7 @@ module Fastlane
         ]
       end
 
-      def self.supported?(_platform)
+      def self.is_supported?(platform)
         [:ios].include?(platform)
       end
     end
