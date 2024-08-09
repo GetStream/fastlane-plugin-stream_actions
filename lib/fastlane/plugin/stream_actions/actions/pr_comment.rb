@@ -3,11 +3,22 @@ module Fastlane
     class PrCommentAction < Action
       def self.run(params)
         if params[:pr_num]
-          last_comment = sh("gh pr view #{params[:pr_num]} --json comments --jq '.comments | map(select(.author.login == \"Stream-SDK-Bot\")) | last'")
-          edit_last_comment = params[:edit_last_comment_with_text] && last_comment.include?(params[:edit_last_comment_with_text]) ? '--edit-last' : ''
-          sh("gh pr comment #{params[:pr_num]} #{edit_last_comment} -b '#{params[:text]}'")
+          additional_args = []
+          if params[:edit_last_comment_with_text]
+            UI.message('Checking last comment for required pattern.')
+            last_comment = sh("gh pr view #{params[:pr_num]} --json comments --jq '.comments | map(select(.author.login == \"Stream-SDK-Bot\")) | last'")
+            last_comment_match = params[:edit_last_comment_with_text] && last_comment.include?(params[:edit_last_comment_with_text])
+
+            if last_comment_match
+              additional_args << '--edit-last'
+            else
+              UI.important('Last comment does not match the pattern.')
+            end
+          end
+          sh("gh pr comment #{params[:pr_num]} -b '#{params[:text]}' #{additional_args.join(' ')}")
+          UI.success('PR comment been added.')
         else
-          UI.important('Skipping the PR comment because PR number has not been provided.')
+          UI.error('Skipping the PR comment because PR number has not been provided.')
         end
       end
 
