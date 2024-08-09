@@ -58,8 +58,6 @@ module Fastlane
         if params[:version].nil? && !["patch", "minor", "major"].include?(params[:bump_type])
           UI.user_error!("Please use type parameter with one of the options: type:patch, type:minor, type:major")
         end
-
-        sh('git config --global user.name "Stream Bot"')
       end
 
       def self.ensure_release_tag_is_new(version_number)

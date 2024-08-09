@@ -15,7 +15,7 @@ module Fastlane
           name: version_number,
           tag_name: version_number,
           description: changes,
-          commitish: ENV['BRANCH_NAME'] || other_action.git_branch,
+          commitish: other_action.current_branch,
           upload_assets: params[:upload_assets]
         )
 

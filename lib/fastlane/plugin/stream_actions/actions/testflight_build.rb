@@ -30,8 +30,7 @@ module Fastlane
           xcargs: params[:xcargs]
         )
 
-        current_branch = ENV['BRANCH_NAME'] || other_action.git_branch
-        external_groups = current_branch == 'main' ? ['Public Link'] : []
+        external_groups = other_action.current_branch == 'main' ? ['Public Link'] : []
         other_action.pilot(
           api_key: params[:api_key],
           team_id: '118902954',
