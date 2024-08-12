@@ -26,18 +26,24 @@ module Fastlane
           fine_tolerance = 250 # Fine Tolerance is 250KB
 
           diff = branch_value_kb - benchmark_value_kb
-          diff_sign = diff.positive? ? '+' : '-'
 
-          status_emoji =
-            if diff < 0
-              outstanding_status
-            elsif diff >= max_tolerance
-              fail_status
-            elsif diff >= fine_tolerance
-              warning_status
-            else
-              success_status
-            end
+          diff_sign = if diff.zero?
+                        ''
+                      elsif diff.positive?
+                        '+'
+                      else
+                        '-'
+                      end
+
+          status_emoji = if diff < 0
+                           outstanding_status
+                         elsif diff >= max_tolerance
+                           fail_status
+                         elsif diff >= fine_tolerance
+                           warning_status
+                         else
+                           success_status
+                         end
 
           markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff_sign}#{diff.to_i.abs}KB|#{status_emoji}|\n"
         end
