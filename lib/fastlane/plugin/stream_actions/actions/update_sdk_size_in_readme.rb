@@ -12,6 +12,8 @@ module Fastlane
 
         File.write(params[:readme_path], readme_content)
         UI.success('Successfully updated the SDK size labels in README.md!')
+
+        other_action.pr_create(title: '[CI] Update SDK Size', head_branch: "ci/sdk-size-update-#{Time.now.to_i}") if params[:open_pr]
       end
 
       #####################################################
@@ -34,6 +36,11 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :sizes,
             description: 'SDK sizes',
+            is_string: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :open_pr,
+            description: 'Should a PR be opened',
             is_string: false
           )
         ]
