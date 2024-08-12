@@ -25,7 +25,8 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_PR_NUM',
             key: :pr_num,
-            description: 'GitHub PR number'
+            description: 'GitHub PR number',
+            optional: true
           )
         ]
       end
