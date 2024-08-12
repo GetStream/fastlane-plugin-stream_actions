@@ -19,9 +19,9 @@ module Fastlane
         table_header = '## SDK Size'
         markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
-          branch_value_mb = (branch_value_kb / 1024).round(2)
+          branch_value_mb = (branch_value_kb / 1024.0).round(2)
           benchmark_value_kb = benchmark_sizes[sdk_name.to_s]
-          benchmark_value_mb = (benchmark_value_kb / 1024).round(2)
+          benchmark_value_mb = (benchmark_value_kb / 1024.0).round(2)
           max_tolerance = 500 # Max Tolerance is 500KB
           fine_tolerance = 250 # Fine Tolerance is 250KB
 
