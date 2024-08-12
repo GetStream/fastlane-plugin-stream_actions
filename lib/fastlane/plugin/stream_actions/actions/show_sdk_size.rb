@@ -10,7 +10,7 @@ module Fastlane
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
         sdk_size_path = "#{metrics_dir}/#{params[:github_repo].split('/').last}-size.json"
-        sh("git clone git@github.com:GetStream/apple-internal-metrics.git #{metrics_dir}/")
+        sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}/")
         is_release = other_action.current_branch.include?('release/')
         benchmark_config = JSON.parse(File.read(sdk_size_path))
         benchmark_key = is_release ? 'release' : 'develop'
