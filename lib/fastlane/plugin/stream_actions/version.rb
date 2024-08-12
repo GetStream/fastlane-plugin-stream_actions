@@ -1,5 +1,5 @@
 module Fastlane
   module StreamActions
-    VERSION = '0.3.48'
+    VERSION = '0.3.49'
   end
 end
