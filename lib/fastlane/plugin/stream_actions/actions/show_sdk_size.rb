@@ -1,6 +1,6 @@
 module Fastlane
   module Actions
-    class ShowFrameworksSizeAction < Action
+    class ShowSdkSizeAction < Action
       def self.run(params)
         warning_status = '🟡' # Warning if a branch is #{max_tolerance} less performant than the benchmark
         fail_status = '🔴' # Failure if a branch is more than #{max_tolerance} less performant than the benchmark
@@ -18,13 +18,14 @@ module Fastlane
 
         table_header = '## SDK Size'
         markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
-        params[:sdk_names].each do |title|
-          benchmark_value = benchmark_sizes[title]
-          branch_value = params[:branch_sizes][title.to_sym]
-          max_tolerance = 0.5 # Max Tolerance is 0.5MB
-          fine_tolerance = 0.25 # Fine Tolerance is 0.25MB
+        params[:branch_sizes].each do |sdk_name, branch_value_kb|
+          branch_value_mb = (branch_value_kb / 1024).round(2)
+          benchmark_value_kb = benchmark_sizes[sdk_name]
+          benchmark_value_mb = (benchmark_value_kb / 1024).round(2)
+          max_tolerance = 500 # Max Tolerance is 500KB
+          fine_tolerance = 250 # Fine Tolerance is 250KB
 
-          diff = (branch_value - benchmark_value).round(2)
+          diff = branch_value_kb - benchmark_value_kb
 
           status_emoji =
             if diff < 0
@@ -37,7 +38,7 @@ module Fastlane
               success_status
             end
 
-          markdown_table << "|#{title}|#{benchmark_value}MB|#{branch_value}MB|#{diff}MB|#{status_emoji}|\n"
+          markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff.round(2)}KB|#{status_emoji}|\n"
         end
 
         FastlaneCore::PrintTable.print_values(title: 'Benchmark', config: benchmark_sizes)
@@ -69,7 +70,7 @@ module Fastlane
       #####################################################
 
       def self.description
-        'Show frameworks size'
+        'Show SDKs size'
       end
 
       def self.available_options
@@ -80,14 +81,6 @@ module Fastlane
             description: 'GitHub repo name',
             verify_block: proc do |name|
               UI.user_error!("GITHUB_REPOSITORY should not be empty") if name.to_s.empty?
-            end
-          ),
-          FastlaneCore::ConfigItem.new(
-            key: :sdk_names,
-            description: 'SDK names',
-            is_string: false,
-            verify_block: proc do |sdks|
-              UI.user_error!("SDK names array has to be specified") unless sdks.kind_of?(Array) && sdks.size.positive?
             end
           ),
           FastlaneCore::ConfigItem.new(

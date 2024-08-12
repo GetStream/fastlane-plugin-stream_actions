@@ -7,7 +7,7 @@ lane :release do
   sh("gem push ../#{gem_path}")
   set_github_release(
     repository_name: 'GetStream/fastlane-plugin-stream_actions',
-    api_token: ENV.fetch("GITHUB_TOKEN", nil),
+    api_token: ENV.fetch('GITHUB_TOKEN', nil),
     name: "Stream Actions v#{version}",
     tag_name: "v#{version}",
     description: "v#{version}",
