@@ -11,7 +11,7 @@ module Fastlane
         if simulators.empty?
           Dir.chdir('..') do
             sh("echo 'iOS #{params[:version]} Simulator' | ipsw download xcode --sim") if Dir['*.dmg'].first.nil?
-            sh("./Scripts/install_ios_runtime.sh #{Dir['*.dmg'].first}")
+            sh("sh #{params[:custom_script]} #{Dir['*.dmg'].first}")
             UI.success("iOS #{params[:version]} Runtime successfuly installed")
           end
         else
@@ -32,6 +32,10 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :version,
             description: 'iOS Version'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :custom_script,
+            description: 'Path to custom script to install the runtime'
           )
         ]
       end
