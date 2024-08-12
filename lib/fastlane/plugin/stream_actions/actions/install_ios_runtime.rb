@@ -9,11 +9,9 @@ module Fastlane
         end
 
         if simulators.empty?
-          Dir.chdir('..') do
-            sh("echo 'iOS #{params[:version]} Simulator' | ipsw download xcode --sim") if Dir['*.dmg'].first.nil?
-            sh("sh #{params[:custom_script]} #{Dir['*.dmg'].first}")
-            UI.success("iOS #{params[:version]} Runtime successfuly installed")
-          end
+          sh("echo 'iOS #{params[:version]} Simulator' | ipsw download xcode --sim") if Dir['*.dmg'].first.nil?
+          sh("#{params[:custom_script]} #{Dir['*.dmg'].first}")
+          UI.success("iOS #{params[:version]} Runtime successfuly installed")
         else
           UI.important("iOS #{params[:version]} Runtime already exists")
         end
