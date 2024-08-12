@@ -38,7 +38,7 @@ module Fastlane
               success_status
             end
 
-          markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff.round(2)}KB|#{status_emoji}|\n"
+          markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff.to_i}KB|#{status_emoji}|\n"
         end
 
         FastlaneCore::PrintTable.print_values(title: 'Benchmark', config: benchmark_sizes)
