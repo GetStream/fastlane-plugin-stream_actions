@@ -26,6 +26,7 @@ module Fastlane
           fine_tolerance = 250 # Fine Tolerance is 250KB
 
           diff = branch_value_kb - benchmark_value_kb
+          diff_sign = diff.positive? ? '+' : '-'
 
           status_emoji =
             if diff < 0
@@ -38,7 +39,7 @@ module Fastlane
               success_status
             end
 
-          markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff.to_i}KB|#{status_emoji}|\n"
+          markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff_sign}#{diff.to_i.abs}KB|#{status_emoji}|\n"
         end
 
         FastlaneCore::PrintTable.print_values(title: 'Benchmark', config: benchmark_sizes)
