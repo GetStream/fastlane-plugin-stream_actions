@@ -2,7 +2,9 @@ module Fastlane
   module Actions
     class PrCommentAction < Action
       def self.run(params)
-        if params[:pr_num]
+        if params[:pr_num].to_s.empty?
+          UI.important('Skipping the PR comment.')
+        else
           additional_args = []
           if params[:edit_last_comment_with_text]
             UI.message('Checking last comment for required pattern.')
@@ -17,8 +19,6 @@ module Fastlane
           end
           sh("gh pr comment #{params[:pr_num]} -b '#{params[:text]}' #{additional_args.join(' ')}")
           UI.success('PR comment been added.')
-        else
-          UI.error('Skipping the PR comment because PR number has not been provided.')
         end
       end
 
