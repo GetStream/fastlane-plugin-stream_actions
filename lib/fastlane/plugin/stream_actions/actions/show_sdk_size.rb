@@ -56,7 +56,7 @@ module Fastlane
             benchmark_config[benchmark_key] = params[:branch_sizes]
             File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
             Dir.chdir(File.dirname(sdk_size_path)) do
-              if sh('git status -s', log: false).to_s.empty?
+              if sh('git status -s').to_s.empty?
                 UI.important('No changes in SDK sizes benchmarks.')
               else
                 sh('git add -A')
