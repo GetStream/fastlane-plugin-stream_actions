@@ -4,7 +4,7 @@ module Fastlane
       def self.run(params)
         UI.user_error!('Extension should be provided') unless params[:ext]
 
-        untracked_files = sh('git status -s', log: false).split("\n").map(&:strip)
+        untracked_files = sh('git status -s').split("\n").map(&:strip)
         UI.important("Git Status: #{untracked_files}")
 
         deleted_files = select_files_from(files: untracked_files, with_extension: params[:ext], that_start_with: 'D')
