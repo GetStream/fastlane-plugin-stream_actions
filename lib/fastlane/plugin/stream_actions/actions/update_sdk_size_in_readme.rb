@@ -7,7 +7,7 @@ module Fastlane
         params[:sizes].each do |key, value|
           framework_size_kb = value
           framework_size_mb = (framework_size_kb / 1024.0).round(2)
-          readme_content.gsub!(%r{(https://img.shields.io/badge/#{key}-)(.*?)(-blue)}, "\\1#{framework_size_mb}MB\\3")
+          readme_content.gsub!(%r{(https://img.shields.io/badge/#{key}-)(.*?)(-blue)}, "\\1#{framework_size_mb}%20MB\\3")
         end
 
         File.write(params[:readme_path], readme_content)
