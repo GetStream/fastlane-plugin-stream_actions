@@ -25,7 +25,7 @@ module Fastlane
           max_tolerance = 500 # Max Tolerance is 500KB
           fine_tolerance = 250 # Fine Tolerance is 250KB
 
-          diff = branch_value_kb - benchmark_value_kb
+          diff = (branch_value_kb - benchmark_value_kb).to_i
 
           diff_sign = if diff.zero?
                         ''
@@ -45,7 +45,7 @@ module Fastlane
                            success_status
                          end
 
-          markdown_table << "|#{sdk_name}|#{benchmark_value_mb}MB|#{branch_value_mb}MB|#{diff_sign}#{diff.to_i.abs}KB|#{status_emoji}|\n"
+          markdown_table << "|#{sdk_name}|#{benchmark_value_mb} MB|#{branch_value_mb} MB|#{diff_sign}#{diff.abs} KB|#{status_emoji}|\n"
         end
 
         FastlaneCore::PrintTable.print_values(title: 'Benchmark', config: benchmark_sizes)
