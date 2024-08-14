@@ -25,7 +25,7 @@ module Fastlane
           max_tolerance = 500 # Max Tolerance is 500KB
           fine_tolerance = 250 # Fine Tolerance is 250KB
 
-          diff = (branch_value_kb - benchmark_value_kb).to_i
+          diff = (branch_value_kb - benchmark_value_kb).round(0)
 
           diff_sign = if diff.zero?
                         ''
