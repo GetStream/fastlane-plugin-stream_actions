@@ -2,7 +2,6 @@ module Fastlane
   module Actions
     class PrCreateAction < Action
       def self.run(params)
-        params[:base_branch] ||= 'develop'
         sh("git checkout -b #{params[:head_branch]}")
         sh('git restore Brewfile.lock.json || true')
         sh('git add -A')
@@ -40,7 +39,8 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :base_branch,
             description: 'Base branch',
-            is_string: true
+            is_string: true,
+            default_value: 'develop'
           ),
           FastlaneCore::ConfigItem.new(
             key: :head_branch,
