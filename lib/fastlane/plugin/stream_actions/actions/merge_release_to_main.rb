@@ -5,7 +5,7 @@ module Fastlane
         other_action.ensure_git_status_clean
 
         release_branch =
-          if is_ci
+          if other_action.is_ci
             # This API operation needs the "admin:org" scope.
             ios_team = `gh api orgs/GetStream/teams/#{params[:github_team_name]}/members -q '.[].login'`.split("\n")
             UI.user_error!("#{params[:author]} is not a member of the iOS Team") unless ios_team.include?(params[:author])
