@@ -20,12 +20,17 @@ module Fastlane
         markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
+          branch_value = params[:size_ext] == 'KB' ? branch_value_kb : branch_value_mb
           benchmark_value_kb = benchmark_sizes[sdk_name.to_s]
           benchmark_value_mb = (benchmark_value_kb / 1024.0).round(2)
+          benchmark_value = params[:size_ext] == 'KB' ? benchmark_value_kb : benchmark_value_mb
           max_tolerance = 500 # Max Tolerance is 500KB
           fine_tolerance = 250 # Fine Tolerance is 250KB
 
-          diff = (branch_value_kb - benchmark_value_kb).round(0)
+          diff_kb = (branch_value_kb - benchmark_value_kb).round(0)
+          diff_b = ((branch_value_kb - benchmark_value_kb) * 1024).round(0)
+          diff = params[:size_ext] == 'KB' ? diff_b : diff_kb
+          diff_ext = params[:size_ext] == 'KB' ? 'B' : 'KB'
 
           diff_sign = if diff.zero?
                         ''
@@ -45,7 +50,7 @@ module Fastlane
                            success_status
                          end
 
-          markdown_table << "|#{sdk_name}|#{benchmark_value_mb} MB|#{branch_value_mb} MB|#{diff_sign}#{diff.abs} KB|#{status_emoji}|\n"
+          markdown_table << "|#{sdk_name}|#{benchmark_value} #{params[:size_ext]}|#{branch_value} #{params[:size_ext]}|#{diff_sign}#{diff.abs} #{diff_ext}|#{status_emoji}|\n"
         end
 
         FastlaneCore::PrintTable.print_values(title: 'Benchmark', config: benchmark_sizes)
@@ -97,6 +102,11 @@ module Fastlane
             verify_block: proc do |s|
               UI.user_error!("Branch sizes have to be specified") if s.nil?
             end
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :size_ext,
+            description: 'SDK size extension (KB or MB)',
+            default_value: 'MB'
           )
         ]
       end

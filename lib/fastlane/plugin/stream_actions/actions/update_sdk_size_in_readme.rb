@@ -7,7 +7,8 @@ module Fastlane
         params[:sizes].each do |key, value|
           framework_size_kb = value
           framework_size_mb = (framework_size_kb / 1024.0).round(2)
-          readme_content.gsub!(%r{(https://img.shields.io/badge/#{key}-)(.*?)(-blue)}, "\\1#{framework_size_mb}%20MB\\3")
+          framework_size = params[:size_ext] == 'KB' ? framework_size_kb : framework_size_mb
+          readme_content.gsub!(%r{(https://img.shields.io/badge/#{key}-)(.*?)(-blue)}, "\\1#{framework_size}%20#{params[:size_ext]}\\3")
         end
 
         File.write(params[:readme_path], readme_content)
@@ -42,6 +43,11 @@ module Fastlane
             key: :open_pr,
             description: 'Should a PR be opened',
             is_string: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :size_ext,
+            description: 'SDK size extension (KB or MB)',
+            default_value: 'MB'
           )
         ]
       end
