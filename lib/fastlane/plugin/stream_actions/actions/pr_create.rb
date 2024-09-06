@@ -4,7 +4,7 @@ module Fastlane
       def self.run(params)
         sh("git checkout -b #{params[:head_branch]}")
         sh('git restore Brewfile.lock.json || true')
-        sh('git add -A')
+        sh("git add #{params[:git_add]}")
         sh("git commit -m '#{params[:title]}'")
         other_action.push_to_git_remote(tags: false)
 
@@ -53,6 +53,12 @@ module Fastlane
             description: 'Title',
             is_string: true,
             optional: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :git_add,
+            description: 'Path that should be commited',
+            is_string: true,
+            default_value: '-A'
           )
         ]
       end
