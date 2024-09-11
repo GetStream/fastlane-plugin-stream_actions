@@ -5,17 +5,23 @@ module Fastlane
         sh("git checkout -b #{params[:head_branch]}")
         sh('git restore Brewfile.lock.json || true')
         sh("git add #{params[:git_add]}")
-        sh("git commit -m '#{params[:title]}'")
-        other_action.push_to_git_remote(tags: false)
+        staged_files = sh('git diff --cached --name-only').split
+        if staged_files.empty?
+          unstaged_files = sh('git diff --name-only')
+          UI.important("There is nothing to commit. See unstaged files for more details:\n#{unstaged_files}")
+        else
+          sh("git commit -m '#{params[:title]}'")
+          other_action.push_to_git_remote(tags: false)
 
-        other_action.create_pull_request(
-          api_token: ENV.fetch('GITHUB_TOKEN'),
-          repo: params[:github_repo],
-          title: params[:title],
-          head: params[:head_branch],
-          base: params[:base_branch],
-          body: 'This PR was created automatically by CI.'
-        )
+          other_action.create_pull_request(
+            api_token: ENV.fetch('GITHUB_TOKEN'),
+            repo: params[:github_repo],
+            title: params[:title],
+            head: params[:head_branch],
+            base: params[:base_branch],
+            body: 'This PR was created automatically by CI.'
+          )
+        end
       end
 
       #####################################################
