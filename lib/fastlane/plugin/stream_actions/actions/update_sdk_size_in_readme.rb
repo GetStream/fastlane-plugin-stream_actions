@@ -17,7 +17,7 @@ module Fastlane
         if params[:open_pr]
           other_action.pr_create(
             title: params[:pr_title],
-            git_add: 'README.md',
+            git_add: params[:readme_path],
             head_branch: "ci/sdk-size-update-#{Time.now.to_i}"
           )
         end
