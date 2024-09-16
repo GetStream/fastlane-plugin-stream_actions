@@ -15,22 +15,23 @@ module Fastlane
         benchmark_config = JSON.parse(File.read(sdk_size_path))
         benchmark_key = is_release ? 'release' : 'develop'
         benchmark_sizes = benchmark_config[benchmark_key]
+        is_kb = params[:size_ext] == 'KB'
 
         table_header = '## SDK Size'
         markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
-          branch_value = params[:size_ext] == 'KB' ? branch_value_kb.round(0) : branch_value_mb
+          branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
           benchmark_value_kb = benchmark_sizes[sdk_name.to_s]
           benchmark_value_mb = (benchmark_value_kb / 1024.0).round(2)
-          benchmark_value = params[:size_ext] == 'KB' ? benchmark_value_kb : benchmark_value_mb
-          max_tolerance = 500 # Max Tolerance is 500KB
-          fine_tolerance = 250 # Fine Tolerance is 250KB
+          benchmark_value = is_kb ? benchmark_value_kb : benchmark_value_mb
+          max_tolerance = params[:max_tolerance] || is_kb ? 500 : 5000 # By default, Max Tolerance is 500 Kilobytes or 5000 Bytes
+          fine_tolerance = params[:fine_tolerance] || is_kb ? 250 : 2500 # By default, Fine Tolerance is 250 Kilobytes or 2500 Bytes
 
           diff_kb = (branch_value_kb - benchmark_value_kb).round(0)
           diff_b = ((branch_value_kb - benchmark_value_kb) * 1024).round(0)
-          diff = params[:size_ext] == 'KB' ? diff_b : diff_kb
-          diff_ext = params[:size_ext] == 'KB' ? 'B' : 'KB'
+          diff = is_kb ? diff_b : diff_kb
+          diff_ext = is_kb ? 'B' : 'KB'
 
           diff_sign = if diff.zero?
                         ''
@@ -107,6 +108,18 @@ module Fastlane
             key: :size_ext,
             description: 'SDK size extension (KB or MB)',
             default_value: 'MB'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :max_tolerance,
+            description: 'Max tolerance (in KB `if size_ext == MB` or in B `if size_ext == KB`)',
+            is_string: false,
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :fine_tolerance,
+            description: 'Fine tolerance (in KB `if size_ext == MB` or in B `if size_ext == KB`)',
+            is_string: false,
+            optional: true
           )
         ]
       end
