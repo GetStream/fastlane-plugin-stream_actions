@@ -20,7 +20,7 @@ module Fastlane
         { a: added_files, d: deleted_files, m: modified_files }
       end
 
-      def select_files_from(files:, with_extension:, that_start_with:)
+      def self.select_files_from(files:, with_extension:, that_start_with:)
         files.select do |f|
           f.start_with?(*that_start_with)
         end.map do |f|
