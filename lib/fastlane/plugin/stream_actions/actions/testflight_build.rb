@@ -7,15 +7,24 @@ module Fastlane
           api_key: params[:api_key]
         ) + 1
 
-        Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: params[:api_key])
-        app_store_versions = Spaceship::ConnectAPI::App.find(params[:app_identifier]).app_store_versions
-
         targets = params[:extensions] << params[:app_target]
+
         targets.each do |target|
           other_action.increment_build_number_in_plist(build_number: build_number.to_s, target: target)
-          next if app_store_versions.empty?
+        end
 
-          other_action.increment_version_number_in_plist(version_number: app_store_versions.first.version_string, target: target)
+        if params[:app_version]
+          targets.each do |target|
+            other_action.increment_version_number_in_plist(version_number: params[:app_version].to_s, target: target)
+          end
+        else
+          Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: params[:api_key])
+          app_store_versions = Spaceship::ConnectAPI::App.find(params[:app_identifier]).app_store_versions
+          unless app_store_versions.empty?
+            targets.each do |target|
+              other_action.increment_version_number_in_plist(version_number: app_store_versions.first.version_string, target: target)
+            end
+          end
         end
 
         other_action.gym(
@@ -101,6 +110,11 @@ module Fastlane
             verify_block: proc do |target|
               UI.user_error!('DemoApp target name has to be specified') if target.nil? || target.empty?
             end
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :app_version,
+            description: 'DemoApp version',
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :extensions,
