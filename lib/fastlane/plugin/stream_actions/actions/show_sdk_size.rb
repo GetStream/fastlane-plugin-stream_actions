@@ -58,7 +58,7 @@ module Fastlane
         FastlaneCore::PrintTable.print_values(title: 'SDK Size', config: params[:branch_sizes])
 
         if other_action.is_ci
-          if is_release || ENV['GITHUB_EVENT_NAME'].to_s == 'push'
+          if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && ["main", "develop"].include?(other_action.current_branch))
             benchmark_config[benchmark_key] = params[:branch_sizes]
             File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
             Dir.chdir(File.dirname(sdk_size_path)) do
