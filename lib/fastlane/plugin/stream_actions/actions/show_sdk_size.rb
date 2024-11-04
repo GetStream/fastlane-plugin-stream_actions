@@ -24,7 +24,7 @@ module Fastlane
           branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
           benchmark_value_kb = benchmark_sizes[sdk_name.to_s]
           benchmark_value_mb = (benchmark_value_kb / 1024.0).round(2)
-          benchmark_value = is_kb ? benchmark_value_kb : benchmark_value_mb
+          benchmark_value = is_kb ? benchmark_value_kb.round(0) : benchmark_value_mb
           max_tolerance = params[:max_tolerance] || is_kb ? 500 : 5000 # By default, Max Tolerance is 500 Kilobytes or 5000 Bytes
           fine_tolerance = params[:fine_tolerance] || is_kb ? 250 : 2500 # By default, Fine Tolerance is 250 Kilobytes or 2500 Bytes
 
