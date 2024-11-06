@@ -1,3 +1,8 @@
+> ## Want to add chat to your app?
+>
+> [Stream](https://getstream.io/chat/) powers chat for over 1 billion end-users. Get started with our free chat API trial.
+
+
 # Stream Fastlane Actions
 
 ## Getting Started
