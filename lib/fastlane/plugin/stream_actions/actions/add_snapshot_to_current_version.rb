@@ -5,7 +5,7 @@ module Fastlane
         content = File.read(params[:file_path])
         current_version = content.match(/String\s+=\s+"([\d.]+).*"/)[1]
         updated_version = "#{current_version}-SNAPSHOT"
-        new_content = content.gsub!(/"[^"]+"/, "\"#{updated_version}\"")
+        new_content = content.sub!(/"[^"]+"/, "\"#{updated_version}\"")
         File.open(params[:file_path], 'w') { |f| f.puts(new_content) }
         UI.important("Replaced #{current_version} with #{updated_version} 📝")
       end
