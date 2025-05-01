@@ -161,7 +161,6 @@ module Fastlane
             description: 'GitHub PR number'
           ),
           FastlaneCore::ConfigItem.new(
-            env_name: 'GITHUB_PR_NUM',
             key: :configuration,
             description: 'Build configuration',
             default_value: 'Release'
