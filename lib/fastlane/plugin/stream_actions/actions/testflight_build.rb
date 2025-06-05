@@ -42,7 +42,10 @@ module Fastlane
         changelog =
           if params[:use_changelog]
             version = params[:is_manual_upload] ? 'Upcoming' : params[:app_version]
-            other_action.read_changelog(version: version, changelog_path: params[:changelog_path])
+            other_action.read_changelog(
+              version: version,
+              changelog_path: params[:changelog_path]
+            ).gsub(/^### (.+)$/) { $1.upcase }.gsub(%r{\[(#\d+)\]\(https?://[^)]+\)}, '(\1)')
           else
             testflight_instructions(params)
           end
