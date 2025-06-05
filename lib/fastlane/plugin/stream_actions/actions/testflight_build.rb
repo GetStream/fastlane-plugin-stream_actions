@@ -39,6 +39,13 @@ module Fastlane
           xcargs: params[:xcargs]
         )
 
+        changelog =
+          if params[:use_changelog]
+            other_action.read_changelog(version: params[:app_version], changelog_path: params[:changelog_path])
+          else
+            testflight_instructions(params)
+          end
+
         external_groups = other_action.current_branch == 'main' ? ['Public Link'] : []
         other_action.pilot(
           api_key: params[:api_key],
@@ -50,7 +57,7 @@ module Fastlane
           distribute_external: external_groups.any?,
           notify_external_testers: external_groups.any?,
           reject_build_waiting_for_review: true,
-          changelog: testflight_instructions(params)
+          changelog: changelog
         )
 
         if params[:github_pr_num] && !params[:github_pr_num].strip.empty?
@@ -62,12 +69,11 @@ module Fastlane
       def self.testflight_instructions(params)
         return "This is the official #{params[:app_target]} sample app" unless params[:sdk_target]
 
-        version_number = other_action.get_version_number(target: params[:sdk_target])[/\d+\.\d+\.\d/]
         if ENV['GITHUB_EVENT_NAME'] == 'pull_request'
           sha = ENV['GITHUB_SHA'] ? ENV['GITHUB_SHA'][0..8] : sh('git rev-parse --short HEAD')
           "This is the build for Regression testing on release candidate v#{version_number} (sha: #{sha})."
         else
-          "This is the official sample app built with iOS #{params[:sdk_target]} SDK v#{version_number}. It's designed " \
+          "This is the official sample app built with iOS #{params[:sdk_target]} SDK v#{params[:app_version]}. It's designed " \
             'to highlight engaging features and new improvements to the SDK, but remember that this is just one ' \
             'possible implementation. You can start your own by borrowing and customizing the code from this ' \
             "sample, or build something completely different using Stream's components."
@@ -164,6 +170,18 @@ module Fastlane
             key: :configuration,
             description: 'Build configuration',
             default_value: 'Release'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :use_changelog,
+            description: 'Use the changelog as a testflight instructions',
+            is_string: false,
+            default_value: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :changelog_path,
+            description: 'The path to your project CHANGELOG.md',
+            is_string: true,
+            default_value: './CHANGELOG.md'
           )
         ]
       end
