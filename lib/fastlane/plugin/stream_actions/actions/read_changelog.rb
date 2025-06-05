@@ -3,18 +3,19 @@ module Fastlane
     class ReadChangelogAction < Action
       def self.run(params)
         UI.message("Getting changelog for #{params[:version]}")
-        reading_changelog = false
-        changes = ''
-        changelog_lines = File.readlines(params[:changelog_path])
-        changelog_lines.each do |line|
-          start_token = '# ['
-          if reading_changelog
-            break if line.start_with?(start_token)
 
-            changes << line
+        changes = ''
+        start_token = '# '
+        version_found = false
+        File.readlines(params[:changelog_path]).each do |line|
+          unless version_found
+            version_found = line.start_with?("#{start_token}#{params[:version]}") || line.start_with?("#{start_token}[#{params[:version]}")
+            next
           end
 
-          reading_changelog = true if line.start_with?("#{start_token}#{params[:version]}")
+          break if line.start_with?(start_token)
+
+          changes << line
         end
 
         UI.user_error!("No changelog found for #{params[:version]}") unless changes.length > 0

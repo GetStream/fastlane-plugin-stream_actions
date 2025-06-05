@@ -41,7 +41,8 @@ module Fastlane
 
         changelog =
           if params[:use_changelog]
-            other_action.read_changelog(version: params[:app_version], changelog_path: params[:changelog_path])
+            version = params[:is_manual_upload] ? 'Upcoming' : params[:app_version]
+            other_action.read_changelog(version: version, changelog_path: params[:changelog_path])
           else
             testflight_instructions(params)
           end
@@ -170,6 +171,12 @@ module Fastlane
             key: :configuration,
             description: 'Build configuration',
             default_value: 'Release'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :is_manual_upload,
+            description: 'Treat this as a manual upload',
+            is_string: false,
+            default_value: false
           ),
           FastlaneCore::ConfigItem.new(
             key: :use_changelog,
