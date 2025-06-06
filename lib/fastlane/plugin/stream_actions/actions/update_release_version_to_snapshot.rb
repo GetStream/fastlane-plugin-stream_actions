@@ -1,10 +1,12 @@
 module Fastlane
   module Actions
-    class AddSnapshotToCurrentVersionAction < Action
+    class UpdateReleaseVersionToSnapshotAction < Action
       def self.run(params)
         content = File.read(params[:file_path])
         current_version = content.match(/String\s+=\s+"([\d.]+).*"/)[1]
-        updated_version = "#{current_version}-SNAPSHOT"
+        major, minor, _patch = current_version.split('.').map(&:to_i)
+        minor += 1
+        updated_version = "#{major}.#{minor}.0-SNAPSHOT"
         new_content = content.sub!(/"[^"]+"/, "\"#{updated_version}\"")
         File.open(params[:file_path], 'w') { |f| f.puts(new_content) }
         UI.important("Replaced #{current_version} with #{updated_version} 📝")
@@ -15,7 +17,7 @@ module Fastlane
       #####################################################
 
       def self.description
-        'Add snapshot postfix to the current release version'
+        'Bump a release version and add a snapshot postfix'
       end
 
       def self.available_options
