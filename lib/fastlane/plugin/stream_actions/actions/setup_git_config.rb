@@ -4,6 +4,7 @@ module Fastlane
       def self.run(params)
         params[:username] ||= 'Stream Bot'
         sh("git config --global user.name '#{params[:username]}'")
+        sh("git config --global user.email 'ci@getstream.io'")
       end
 
       #####################################################
