@@ -20,10 +20,7 @@ module Fastlane
         )
 
         unless params[:skip_pods]
-          podspecs = []
-          (params[:podspec_names] || params[:sdk_names]).each do |sdk|
-            podspecs << (sdk.include?('.podspec') ? sdk : "#{sdk}.podspec")
-          end
+          podspecs = params[:podspec_names]&.map { |sdk| "#{sdk}.podspec" } || []
           podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
         end
 

@@ -2,11 +2,6 @@ module Fastlane
   module Actions
     class ReleaseIosSdkAction < Action
       def self.run(params)
-        podspecs = []
-        (params[:podspec_names] || params[:sdk_names]).each do |sdk|
-          podspecs << (sdk.include?('.podspec') ? sdk : "#{sdk}.podspec")
-        end
-
         ensure_everything_is_set_up(params)
 
         version_number = ''
@@ -26,6 +21,7 @@ module Fastlane
           changelog_path: params[:changelog_path]
         )
 
+        podspecs = params[:podspec_names]&.map { |sdk| "#{sdk}.podspec" } || []
         podspecs.each do |podspec|
           UI.user_error!("Podspec #{podspec} does not exist!") unless File.exist?(podspec)
           other_action.version_bump_podspec(path: podspec, version_number: version_number)
