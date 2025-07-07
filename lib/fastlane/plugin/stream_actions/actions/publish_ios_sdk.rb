@@ -56,11 +56,9 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :sdk_names,
-            description: 'SDK names to release',
+            description: 'SDK names to release (deprecated)',
             is_string: false,
-            verify_block: proc do |sdks|
-              UI.user_error!("SDK names array has to be specified") unless sdks.kind_of?(Array) && sdks.size.positive?
-            end
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :skip_pods,
