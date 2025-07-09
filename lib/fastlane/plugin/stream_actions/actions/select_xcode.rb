@@ -7,6 +7,7 @@ module Fastlane
 
         sh("sudo xcode-select -s /Applications/Xcode_#{params[:version]}.app")
         sh('xcodebuild -version')
+        sh('xcrun simctl list runtimes | grep iOS')
       end
 
       #####################################################
