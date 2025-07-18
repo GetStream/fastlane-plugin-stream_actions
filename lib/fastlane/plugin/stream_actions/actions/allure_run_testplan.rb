@@ -19,10 +19,7 @@ module Fastlane
         )
         UI.success("Testplan with id #{testplan_id} synced successfully 🎉")
 
-        body = {
-          launchName: "#{params[:testplan]} #{params[:release_version]}",
-          links: [{ name: 'Jira', url: params[:jira] }]
-        }.to_json
+        body = { launchName: "#{params[:testplan]} #{params[:release_version]}" }.to_json
 
         other_action.allure_api(
           url: params[:url],
@@ -68,8 +65,8 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :jira,
-            description: 'Jira link',
-            default_value: 'Default'
+            description: 'Jira link (Deprecated)',
+            optional: true
           )
         ]
       end
