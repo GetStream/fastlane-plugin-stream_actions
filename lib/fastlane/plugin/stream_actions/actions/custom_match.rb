@@ -40,10 +40,10 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :app_identifier,
-            description: 'The bundle identifier(s) of your app (array of strings)',
+            description: 'The bundle identifier(s) of your app(s) (array of strings)',
             is_string: false,
             verify_block: proc do |id|
-              UI.user_error!("The bundle identifier(s) have to be specified") unless id.kind_of?(Array) && id.size.positive?
+              UI.user_error!("The bundle identifier(s) have to be specified") unless id.kind_of?(Array)
             end
           ),
           FastlaneCore::ConfigItem.new(
