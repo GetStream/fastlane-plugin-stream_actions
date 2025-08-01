@@ -8,8 +8,9 @@ module Fastlane
           additional_args = []
           if params[:edit_last_comment_with_text]
             UI.message('Checking last comment for required pattern.')
-            last_comment = sh("gh pr view #{params[:pr_num]} --json comments --jq '.comments | map(select(.author.login == \"Stream-SDK-Bot\")) | last'")
-            last_comment_match = params[:edit_last_comment_with_text] && last_comment.include?(params[:edit_last_comment_with_text])
+            last_comments_per_author = sh("gh pr view #{params[:pr_num]} --json comments --jq '.comments | group_by(.author.login) | map(last)'")
+            required_edition = params[:edit_last_comment_with_text]
+            last_comment_match = required_edition && JSON.parse(last_comments_per_author).any? { |comment| comment['body'].include?(required_edition) }
 
             if last_comment_match
               additional_args << '--edit-last'
