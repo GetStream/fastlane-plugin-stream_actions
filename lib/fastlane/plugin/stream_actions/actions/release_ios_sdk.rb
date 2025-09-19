@@ -15,11 +15,16 @@ module Fastlane
 
         ensure_release_tag_is_new(version_number)
 
-        changes = other_action.touch_changelog(
-          release_version: version_number,
-          github_repo: params[:github_repo],
-          changelog_path: params[:changelog_path]
-        )
+        changes =
+          if params[:use_changelog]
+            other_action.touch_changelog(
+              release_version: version_number,
+              github_repo: params[:github_repo],
+              changelog_path: params[:changelog_path]
+            )
+          else
+            "#{version_number} Release"
+          end
 
         podspecs = params[:podspec_names]&.map { |sdk| "#{sdk}.podspec" } || []
         podspecs.each do |podspec|
@@ -119,6 +124,12 @@ module Fastlane
             description: 'Skip git status check',
             is_string: false,
             optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :use_changelog,
+            description: 'Use the changelog as a testflight instructions',
+            is_string: false,
+            default_value: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :changelog_path,

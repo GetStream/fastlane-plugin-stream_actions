@@ -7,7 +7,12 @@ module Fastlane
         ensure_everything_is_set_up(params)
         ensure_release_tag_is_new(version_number)
 
-        changes = params[:changelog] || other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
+        changes =
+          if params[:use_changelog]
+            params[:changelog] || other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
+          else
+            version_number
+          end
 
         release_details = other_action.set_github_release(
           repository_name: params[:github_repo],
@@ -94,6 +99,12 @@ module Fastlane
             description: 'Skip git status check',
             is_string: false,
             optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :use_changelog,
+            description: 'Use the changelog as a testflight instructions',
+            is_string: false,
+            default_value: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :changelog_path,
