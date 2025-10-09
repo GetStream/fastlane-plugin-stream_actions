@@ -15,7 +15,7 @@ module Fastlane
             threshold: 1
           )[:details]
 
-          header = "## XCSize: #{sdk}"
+          header = "## #{sdk} XCSize"
           content = "#{header}\nNo changes in SDK size."
           unless details.empty?
             table = "| `Object` | `Diff (bytes)` |\n| - | - |\n"
