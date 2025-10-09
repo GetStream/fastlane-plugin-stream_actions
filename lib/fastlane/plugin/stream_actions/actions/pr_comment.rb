@@ -2,24 +2,21 @@ module Fastlane
   module Actions
     class PrCommentAction < Action
       def self.run(params)
-        if params[:pr_num].to_s.empty?
-          UI.important('Skipping the PR comment.')
+        if params[:pr_num].to_s.empty? || params[:github_repo].to_s.empty?
+          UI.important('Skipping the PR comment because PR number or GitHub repo is not set.')
         else
-          additional_args = []
           if params[:edit_last_comment_with_text]
-            UI.message('Checking last comment for required pattern.')
-            last_comments_per_author = sh("gh pr view #{params[:pr_num]} --json comments --jq '.comments | group_by(.author.login) | map(last)'")
-            required_edition = params[:edit_last_comment_with_text]
-            last_comment_match = required_edition && JSON.parse(last_comments_per_author).any? { |comment| comment['body'].include?(required_edition) }
+            text = params[:edit_last_comment_with_text]
+            UI.message("Checking last comment for required pattern: '#{text}'")
+            comments = sh("gh api repos/#{params[:github_repo]}/issues/#{params[:pr_num]}/comments --jq " \
+                          "'[.[] | select(.body | test(\"#{text}\"; \"i\")) | {id, user: .user.login, html_url}]'")
 
-            if last_comment_match
-              additional_args << '--edit-last'
-            else
-              UI.important('Last comment does not match the pattern.')
+            JSON.parse(comments).each do |comment|
+              sh("gh api --method DELETE repos/#{params[:github_repo]}/issues/comments/#{comment['id']}")
             end
           end
-          sh("gh pr comment #{params[:pr_num]} -b '#{params[:text]}' #{additional_args.join(' ')}")
-          UI.success('PR comment been added.')
+          sh("gh pr comment #{params[:pr_num]} -b '#{params[:text]}'")
+          UI.success('PR comment has been added.')
         end
       end
 
@@ -33,6 +30,12 @@ module Fastlane
 
       def self.available_options
         [
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_REPOSITORY',
+            key: :github_repo,
+            description: 'GitHub repo name',
+            optional: true
+          ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_PR_NUM',
             key: :pr_num,
@@ -49,7 +52,7 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :edit_last_comment_with_text,
-            description: 'If last comment contains this text it will be edited',
+            description: 'If last comment contains this text it will be edited or replaced',
             is_string: true,
             optional: true
           )
