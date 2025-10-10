@@ -14,7 +14,7 @@ module Fastlane
           old_details = metrics[metrics_branch]
           new_details = other_action.xcsize(
             linkmap: "linkmaps/#{sdk}-LinkMap.txt",
-            threshold: params[:threshold]
+            threshold: 0 # Threshold is set to 0 to show all objects
           )[:details]
 
           # Compare old linkmap and new linkmap objects sizes
