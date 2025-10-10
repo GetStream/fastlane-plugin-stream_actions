@@ -39,7 +39,8 @@ module Fastlane
           header = "## #{sdk} XCSize"
           content = "#{header}\nNo changes in SDK size."
           unless differences.empty?
-            content = "#{header}\n#{build_collapsible_table(differences)}"
+            sorted_differences = differences.sort_by { |_, diff| -diff.to_s.gsub(/[+\-]/, '').to_i }
+            content = "#{header}\n#{build_collapsible_table(sorted_differences.to_h)}"
           end
           UI.important(content)
 
@@ -67,15 +68,15 @@ module Fastlane
         differences_list = differences.to_a
         visible_count = [5, differences_list.length].min
         hidden_count = differences_list.length - visible_count
-        main_row = "| `Object` | `Diff (bytes)` |\n| - | - |\n"
 
-        table = main_row
+        table = "| `Object` | `Diff (bytes)` |\n| - | - |\n"
         differences_list.first(visible_count).each do |object, diff|
           table << "| #{object} | #{diff} |\n"
         end
 
         if hidden_count > 0
-          table << "\n<details>\n<summary>Show #{hidden_count} more objects</summary>\n\n#{main_row}"
+          table << "\n<details>\n<summary>Show #{hidden_count} more objects</summary>\n\n"
+          table << "| `Object` | `Diff (bytes)` |\n| - | - |\n"
           differences_list[visible_count..-1].each do |object, diff|
             table << "| #{object} | #{diff} |\n"
           end
