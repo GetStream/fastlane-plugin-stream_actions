@@ -66,7 +66,7 @@ module Fastlane
 
       def self.build_collapsible_table(differences)
         differences_list = differences.to_a
-        visible_count = [5, differences_list.length].min
+        visible_count = differences_list.length > 10 ? 5 : differences_list.length
         hidden_count = differences_list.length - visible_count
 
         table = "| `Object` | `Diff (bytes)` |\n| - | - |\n"
