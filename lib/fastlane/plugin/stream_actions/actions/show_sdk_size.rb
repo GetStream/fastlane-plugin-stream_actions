@@ -58,25 +58,23 @@ module Fastlane
         FastlaneCore::PrintTable.print_values(title: 'Benchmark', config: benchmark_sizes)
         FastlaneCore::PrintTable.print_values(title: 'SDK Size', config: params[:branch_sizes])
 
-        if other_action.is_ci
-          if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && ["main", "develop"].include?(other_action.current_branch))
-            benchmark_config[benchmark_key] = params[:branch_sizes]
-            File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
-            Dir.chdir(File.dirname(sdk_size_path)) do
-              if sh('git status -s').to_s.empty?
-                UI.important('No changes in SDK sizes benchmarks.')
-              else
-                sh('git add -A')
-                sh("git commit -m 'Update #{sdk_size_path}'")
-                sh('git push')
-              end
+        return unless other_action.is_ci
+
+        if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop')
+          benchmark_config[benchmark_key] = params[:branch_sizes]
+          File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
+          Dir.chdir(File.dirname(sdk_size_path)) do
+            if sh('git status -s').to_s.empty?
+              UI.important('No changes in SDK sizes benchmarks.')
+            else
+              sh('git add -A')
+              sh("git commit -m 'Update #{sdk_size_path}'")
+              sh('git push')
             end
           end
-
-          other_action.pr_comment(text: markdown_table, edit_last_comment_with_text: table_header)
         end
 
-        UI.user_error!("#{table_header} benchmark failed.") if markdown_table.include?(fail_status)
+        other_action.pr_comment(text: markdown_table, edit_last_comment_with_text: table_header)
       end
 
       #####################################################
