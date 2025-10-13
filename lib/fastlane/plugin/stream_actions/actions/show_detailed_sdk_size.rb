@@ -60,7 +60,7 @@ module Fastlane
             end
           end
 
-          other_action.pr_comment(text: content, edit_last_comment_with_text: header)
+          other_action.pr_comment(text: content, edit_last_comment_with_text: header) unless differences.empty?
         end
       end
 
