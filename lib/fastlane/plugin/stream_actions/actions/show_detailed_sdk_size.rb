@@ -11,7 +11,7 @@ module Fastlane
           metrics_path = "metrics/linkmaps/#{sdk}.json"
           metrics_branch = is_release ? 'release' : 'develop'
           metrics = JSON.parse(File.read(metrics_path))
-          old_details = metrics[metrics_branch]
+          old_details = metrics[metrics_branch] || {}
           new_details = other_action.xcsize(
             linkmap: "linkmaps/#{sdk}-arm64-LinkMap.txt",
             threshold: 0 # Threshold is set to 0 to show all objects
