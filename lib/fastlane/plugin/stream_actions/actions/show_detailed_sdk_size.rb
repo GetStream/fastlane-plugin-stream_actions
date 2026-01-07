@@ -44,11 +44,13 @@ module Fastlane
           end
           UI.important(content)
 
+          # Update metrics json with the new details
+          metrics[metrics_branch] = new_details
+          File.write(metrics_path, JSON.pretty_generate(metrics))
+
           next unless other_action.is_ci
 
           if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop')
-            metrics[metrics_branch] = new_details
-            File.write(metrics_path, JSON.pretty_generate(metrics))
             Dir.chdir(metrics_dir) do
               if sh('git status -s').to_s.empty?
                 UI.important('No changes in linkmap.')
