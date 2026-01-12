@@ -22,7 +22,7 @@ module Fastlane
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
           branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
-          benchmark_value_kb = benchmark_sizes[sdk_name.to_s]
+          benchmark_value_kb = benchmark_sizes[sdk_name.to_s] || 0
           benchmark_value_mb = (benchmark_value_kb / 1024.0).round(2)
           benchmark_value = is_kb ? benchmark_value_kb.round(0) : benchmark_value_mb
 
