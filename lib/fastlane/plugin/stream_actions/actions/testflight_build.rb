@@ -61,6 +61,7 @@ module Fastlane
           distribute_external: external_groups.any?,
           notify_external_testers: external_groups.any?,
           reject_build_waiting_for_review: true,
+          expire_previous_builds: false,
           changelog: changelog
         )
 
