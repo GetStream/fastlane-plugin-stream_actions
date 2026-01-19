@@ -2,21 +2,15 @@ module Fastlane
   module Actions
     class ShowDetailedSdkSizeAction < Action
       def self.run(params)
-        chat_v5_branch = 'v5'
-        is_chat_repo = params[:github_repo].include?('stream-chat-swift')
-        is_pr_to_chat_v5 = is_chat_repo && ENV['GITHUB_BASE_REF'].to_s.include?(chat_v5_branch)
-        is_push_to_chat_v5 = is_chat_repo && ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == chat_v5_branch
-        UI.important("TODO: Base branch workaround for StreamChat v5 on iOS. It should be removed when v5 is released.") if is_pr_to_chat_v5 || is_push_to_chat_v5
-
         is_release = other_action.current_branch.include?('release/')
-        is_push_to_develop = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop'
+        is_push_to_base_branch = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == params[:base_branch]
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
         sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}")
 
         params[:sdk_names].each do |sdk|
           metrics_path = "metrics/linkmaps/#{sdk}.json"
-          metrics_branch = is_release ? 'release' : is_pr_to_chat_v5 ? chat_v5_branch : 'develop'
+          metrics_branch = is_release ? 'release' : params[:base_branch]
           metrics = JSON.parse(File.read(metrics_path))
           old_details = metrics[metrics_branch] || {}
           new_details = other_action.xcsize(
@@ -57,7 +51,7 @@ module Fastlane
 
           next unless other_action.is_ci
 
-          if is_release || is_push_to_develop || is_push_to_chat_v5
+          if is_release || is_push_to_base_branch
             Dir.chdir(metrics_dir) do
               if sh('git status -s').to_s.empty?
                 UI.important('No changes in linkmap.')
@@ -127,6 +121,13 @@ module Fastlane
             optional: true,
             is_string: false,
             default_value: 1
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :base_branch,
+            description: 'Base branch name',
+            optional: false,
+            is_string: true,
+            default_value: 'develop'
           )
         ]
       end
