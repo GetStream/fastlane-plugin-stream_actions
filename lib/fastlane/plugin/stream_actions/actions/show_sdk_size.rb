@@ -2,6 +2,11 @@ module Fastlane
   module Actions
     class ShowSdkSizeAction < Action
       def self.run(params)
+        chat_v5_branch = 'v5'
+        is_chat_v5 = params[:github_repo].include?('stream-chat-swift') && ENV.fetch('GITHUB_BASE_REF', nil).to_s.include?(chat_v5_branch)
+        is_push_to_chat_v5 = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == chat_v5_branch
+        UI.important("🏗️ Base branch workaround for Chat V5") if is_chat_v5
+
         warning_status = '🟡' # Warning if a branch is #{max_tolerance} less performant than the benchmark
         fail_status = '🔴' # Failure if a branch is more than #{max_tolerance} less performant than the benchmark
         success_status = '🟢' # Success if a branch is more performant or equals to the benchmark
@@ -12,13 +17,14 @@ module Fastlane
         sdk_size_path = "#{metrics_dir}/#{params[:github_repo].split('/').last}-size.json"
         sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}/")
         is_release = other_action.current_branch.include?('release/')
+        is_push_to_develop = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop'
         benchmark_config = JSON.parse(File.read(sdk_size_path))
-        benchmark_key = is_release ? 'release' : 'develop'
-        benchmark_sizes = benchmark_config[benchmark_key]
+        benchmark_key = is_release ? 'release' : is_chat_v5 ? chat_v5_branch : 'develop'
+        benchmark_sizes = benchmark_config[benchmark_key] || {}
         is_kb = params[:size_ext] == 'KB'
 
         table_header = '## SDK Size'
-        markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
+        markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : is_chat_v5 ? chat_v5_branch : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
           branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
@@ -60,7 +66,7 @@ module Fastlane
 
         return unless other_action.is_ci
 
-        if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop')
+        if is_release || is_push_to_develop || is_push_to_chat_v5
           benchmark_config[benchmark_key] = params[:branch_sizes]
           File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
           Dir.chdir(File.dirname(sdk_size_path)) do

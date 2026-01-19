@@ -2,14 +2,20 @@ module Fastlane
   module Actions
     class ShowDetailedSdkSizeAction < Action
       def self.run(params)
+        chat_v5_branch = 'v5'
+        is_chat_v5 = params[:github_repo].include?('stream-chat-swift') && ENV.fetch('GITHUB_BASE_REF', nil).to_s.include?(chat_v5_branch)
+        is_push_to_chat_v5 = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == chat_v5_branch
+        UI.important("🏗️ Base branch workaround for Chat V5") if is_chat_v5
+
         is_release = other_action.current_branch.include?('release/')
+        is_push_to_develop = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop'
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
         sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}")
 
         params[:sdk_names].each do |sdk|
           metrics_path = "metrics/linkmaps/#{sdk}.json"
-          metrics_branch = is_release ? 'release' : 'develop'
+          metrics_branch = is_release ? 'release' : is_chat_v5 ? chat_v5_branch : 'develop'
           metrics = JSON.parse(File.read(metrics_path))
           old_details = metrics[metrics_branch] || {}
           new_details = other_action.xcsize(
@@ -50,7 +56,7 @@ module Fastlane
 
           next unless other_action.is_ci
 
-          if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop')
+          if is_release || is_push_to_develop || is_push_to_chat_v5
             Dir.chdir(metrics_dir) do
               if sh('git status -s').to_s.empty?
                 UI.important('No changes in linkmap.')
@@ -98,6 +104,14 @@ module Fastlane
 
       def self.available_options
         [
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_REPOSITORY',
+            key: :github_repo,
+            description: 'GitHub repo name',
+            verify_block: proc do |name|
+              UI.user_error!("GITHUB_REPOSITORY should not be empty") if name.to_s.empty?
+            end
+          ),
           FastlaneCore::ConfigItem.new(
             key: :sdk_names,
             description: 'SDK names to analyze',
