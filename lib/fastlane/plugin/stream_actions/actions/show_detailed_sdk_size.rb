@@ -100,14 +100,6 @@ module Fastlane
       def self.available_options
         [
           FastlaneCore::ConfigItem.new(
-            env_name: 'GITHUB_REPOSITORY',
-            key: :github_repo,
-            description: 'GitHub repo name',
-            verify_block: proc do |name|
-              UI.user_error!("GITHUB_REPOSITORY should not be empty") if name.to_s.empty?
-            end
-          ),
-          FastlaneCore::ConfigItem.new(
             key: :sdk_names,
             description: 'SDK names to analyze',
             is_string: false,
