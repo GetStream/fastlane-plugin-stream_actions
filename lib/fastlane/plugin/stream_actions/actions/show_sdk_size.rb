@@ -4,7 +4,7 @@ module Fastlane
       def self.run(params)
         chat_v5_branch = 'v5'
         is_chat_repo = params[:github_repo].include?('stream-chat-swift')
-        is_pr_to_chat_v5 = is_chat_repo && ENV.fetch('GITHUB_BASE_REF', nil).to_s.include?(chat_v5_branch)
+        is_pr_to_chat_v5 = is_chat_repo && ENV['GITHUB_BASE_REF'].to_s.include?(chat_v5_branch)
         is_push_to_chat_v5 = is_chat_repo && ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == chat_v5_branch
         UI.important("TODO: Base branch workaround for StreamChat v5 on iOS. It should be removed when v5 is released.") if is_pr_to_chat_v5 || is_push_to_chat_v5
 
