@@ -3,9 +3,9 @@ module Fastlane
     class ShowDetailedSdkSizeAction < Action
       def self.run(params)
         chat_v5_branch = 'v5'
-        is_chat_v5 = params[:github_repo].include?('stream-chat-swift') && ENV.fetch('GITHUB_BASE_REF', nil).to_s.include?(chat_v5_branch)
+        is_chat_v5_pr = params[:github_repo].include?('stream-chat-swift') && ENV.fetch('GITHUB_BASE_REF', nil).to_s.include?(chat_v5_branch)
         is_push_to_chat_v5 = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == chat_v5_branch
-        UI.important("🏗️ Base branch workaround for Chat V5") if is_chat_v5
+        UI.important("🏗️ Base branch workaround for Chat V5") if is_chat_v5_pr || is_push_to_chat_v5
 
         is_release = other_action.current_branch.include?('release/')
         is_push_to_develop = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop'
@@ -15,7 +15,7 @@ module Fastlane
 
         params[:sdk_names].each do |sdk|
           metrics_path = "metrics/linkmaps/#{sdk}.json"
-          metrics_branch = is_release ? 'release' : is_chat_v5 ? chat_v5_branch : 'develop'
+          metrics_branch = is_release ? 'release' : is_chat_v5_pr ? chat_v5_branch : 'develop'
           metrics = JSON.parse(File.read(metrics_path))
           old_details = metrics[metrics_branch] || {}
           new_details = other_action.xcsize(
