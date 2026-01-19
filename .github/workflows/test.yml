@@ -22,15 +22,12 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       PR_NUMBER: ${{ github.event.number }}
     steps:
-      - uses: actions/checkout@v2.5.0
+      - uses: actions/checkout@v4.1.1
 
-      - name: Cache RubyGems
-        uses: actions/cache@v3
-        id: rubygem-cache
+      - uses: ruby/setup-ruby@v1
         with:
-          path: vendor/bundle
-          key: ${{ env.IMAGE }}-gem-${{ hashFiles('**/Gemfile.lock') }}
-          restore-keys: ${{ env.IMAGE }}-gem-
+          ruby-version: 3.1
+          bundler-cache: true
 
       - run: bundle install
 
