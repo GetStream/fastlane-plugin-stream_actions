@@ -124,8 +124,6 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :base_branch,
             description: 'Base branch name',
-            optional: false,
-            is_string: true,
             default_value: 'develop'
           )
         ]
