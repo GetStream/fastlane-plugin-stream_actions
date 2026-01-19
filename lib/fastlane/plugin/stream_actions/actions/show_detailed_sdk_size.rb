@@ -3,13 +3,14 @@ module Fastlane
     class ShowDetailedSdkSizeAction < Action
       def self.run(params)
         is_release = other_action.current_branch.include?('release/')
+        is_push_to_base_branch = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == params[:base_branch]
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
         sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}")
 
         params[:sdk_names].each do |sdk|
           metrics_path = "metrics/linkmaps/#{sdk}.json"
-          metrics_branch = is_release ? 'release' : 'develop'
+          metrics_branch = is_release ? 'release' : params[:base_branch]
           metrics = JSON.parse(File.read(metrics_path))
           old_details = metrics[metrics_branch] || {}
           new_details = other_action.xcsize(
@@ -50,7 +51,7 @@ module Fastlane
 
           next unless other_action.is_ci
 
-          if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop')
+          if is_release || is_push_to_base_branch
             Dir.chdir(metrics_dir) do
               if sh('git status -s').to_s.empty?
                 UI.important('No changes in linkmap.')
@@ -112,6 +113,11 @@ module Fastlane
             optional: true,
             is_string: false,
             default_value: 1
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :base_branch,
+            description: 'Base branch name',
+            default_value: 'develop'
           )
         ]
       end

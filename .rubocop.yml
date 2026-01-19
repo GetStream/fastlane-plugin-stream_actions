@@ -107,6 +107,8 @@ Style/IfUnlessModifier:
 Style/AndOr:
   Enabled: true
   EnforcedStyle: conditionals
+Style/NestedTernaryOperator:
+  Enabled: false
 Metrics/ClassLength:
   Max: 320
 Layout/LineLength:

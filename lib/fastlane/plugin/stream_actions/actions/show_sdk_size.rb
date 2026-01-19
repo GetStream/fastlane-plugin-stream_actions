@@ -12,13 +12,14 @@ module Fastlane
         sdk_size_path = "#{metrics_dir}/#{params[:github_repo].split('/').last}-size.json"
         sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}/")
         is_release = other_action.current_branch.include?('release/')
+        is_push_to_base_branch = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == params[:base_branch]
         benchmark_config = JSON.parse(File.read(sdk_size_path))
-        benchmark_key = is_release ? 'release' : 'develop'
-        benchmark_sizes = benchmark_config[benchmark_key]
+        benchmark_key = is_release ? 'release' : params[:base_branch]
+        benchmark_sizes = benchmark_config[benchmark_key] || {}
         is_kb = params[:size_ext] == 'KB'
 
         table_header = '## SDK Size'
-        markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : 'develop'}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
+        markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : params[:base_branch]}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
           branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
@@ -60,7 +61,7 @@ module Fastlane
 
         return unless other_action.is_ci
 
-        if is_release || (ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == 'develop')
+        if is_release || is_push_to_base_branch
           benchmark_config[benchmark_key] = params[:branch_sizes]
           File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
           Dir.chdir(File.dirname(sdk_size_path)) do
@@ -119,6 +120,11 @@ module Fastlane
             description: 'Fine tolerance (in KB `if size_ext == MB` or in B `if size_ext == KB`)',
             is_string: false,
             optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :base_branch,
+            description: 'Base branch name',
+            default_value: 'develop'
           )
         ]
       end
