@@ -24,7 +24,7 @@ module Fastlane
           upload_assets: params[:upload_assets]
         )
 
-        unless params[:skip_pods]
+        unless params[:skip_pods].to_s.downcase == 'true'
           podspecs = params[:podspec_names]&.map { |sdk| "#{sdk}.podspec" } || []
           podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
         end
