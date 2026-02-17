@@ -20,6 +20,8 @@ AllCops:
   - "**/lib/assets/MatchfileTemplate"
   - "**/spec/fixtures/broken_files/broken_file.rb"
   - "**/*.provisionprofile"
+Style/FetchEnvVar:
+  Enabled: false
 Style/MultipleComparison:
   Enabled: false
 Style/RedundantFetchBlock:

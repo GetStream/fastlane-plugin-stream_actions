@@ -13,13 +13,17 @@ module Fastlane
           sh("git commit -m '#{params[:title]}'")
           other_action.push_to_git_remote(tags: false)
 
+          run_url = "#{ENV['GITHUB_SERVER_URL']}/#{ENV['GITHUB_REPOSITORY']}/actions/runs/#{ENV['GITHUB_RUN_ID']}" if ENV['GITHUB_RUN_ID']
+          body = 'This PR was created automatically by CI.'
+          body += "\n\nTriggered by: #{run_url}" if run_url
+
           other_action.create_pull_request(
             api_token: ENV.fetch('GITHUB_TOKEN'),
             repo: params[:github_repo],
             title: params[:title],
             head: params[:head_branch],
             base: params[:base_branch],
-            body: 'This PR was created automatically by CI.'
+            body: body
           )
         end
       end
