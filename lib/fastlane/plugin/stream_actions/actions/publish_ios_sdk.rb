@@ -21,7 +21,8 @@ module Fastlane
           tag_name: version_number,
           description: changes,
           commitish: other_action.current_branch,
-          upload_assets: params[:upload_assets]
+          upload_assets: params[:upload_assets],
+          is_prerelease: version_number.downcase.include?('beta')
         )
 
         unless params[:skip_pods].to_s.casecmp('true').zero?
