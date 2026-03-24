@@ -4,14 +4,20 @@ module Fastlane
       def self.run(params)
         ensure_everything_is_set_up(params)
 
+        version_acceptable_for_plist = other_action.core_version(version: params[:version])
+
         version_number = ''
         params[:sdk_names].each do |target|
+          # Assigning is required because the version could have been passed via :bump_type
           version_number = other_action.increment_version_number_in_plist(
             target: target,
-            version_number: params[:version],
+            version_number: version_acceptable_for_plist,
             bump_type: params[:bump_type]
           )
         end
+
+        # Reassigning is required if the version was passed via :version to keep postfix such as "-beta" if exists
+        version_number = params[:version] if params[:version]
 
         ensure_release_tag_is_new(version_number)
 

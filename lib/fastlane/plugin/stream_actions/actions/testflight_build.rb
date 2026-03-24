@@ -14,8 +14,9 @@ module Fastlane
         end
 
         if params[:app_version]
+          version_acceptable_for_plist = other_action.core_version(version: params[:app_version])
           targets.each do |target|
-            other_action.increment_version_number_in_plist(version_number: params[:app_version].to_s, target: target)
+            other_action.increment_version_number_in_plist(version_number: version_acceptable_for_plist, target: target)
           end
         else
           Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: params[:api_key])
