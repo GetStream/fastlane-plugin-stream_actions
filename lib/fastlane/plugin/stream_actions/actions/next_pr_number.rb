@@ -9,8 +9,8 @@ module Fastlane
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
         request = Net::HTTP::Get.new(uri.request_uri)
-        token = ENV.fetch('GITHUB_TOKEN', nil)
-        token = ENV.fetch('GH_TOKEN', nil) if token.to_s.empty?
+        token = ENV.fetch('GITHUB_TOKEN') { nil }
+        token = ENV.fetch('GH_TOKEN') { nil } if token.to_s.empty?
         request['Authorization'] = "Bearer #{token}" unless token.to_s.empty?
 
         response = http.request(request)
