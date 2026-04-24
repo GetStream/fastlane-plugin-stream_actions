@@ -48,6 +48,28 @@ describe Fastlane do
 
         expect(result).to be(false)
       end
+
+      it 'on synchronize, lists files from compare between before and after' do
+        b = "a" * 40
+        c = "b" * 40
+        allow(Fastlane::Actions).to receive(:sh).and_return("test1/foo\n")
+
+        described_class.new.parse("lane :test do
+          is_check_required(
+            sources: #{test_sources},
+            github_pr_num: '0',
+            github_event_action: 'synchronize',
+            github_event_before: '#{b}',
+            github_event_after: '#{c}',
+            github_repository: 'o/r'
+          )
+        end").runner.execute(:test)
+
+        expect(Fastlane::Actions).to have_received(:sh).once
+        expect(Fastlane::Actions).to have_received(:sh).with(
+          a_string_including("repos/o/r/compare/#{b}...#{c}")
+        )
+      end
     end
   end
 end

@@ -6,11 +6,11 @@ module Fastlane
 
         UI.message("Checking if check is required for PR ##{params[:github_pr_num]}")
 
-        changed_files = Actions.sh("gh pr view #{params[:github_pr_num]} --json files -q '.files[].path'").split("\n")
+        changed_files = self.changed_file_paths(params)
 
         too_many_files = changed_files.size > 99 # TODO: https://github.com/cli/cli/issues/5368
         if too_many_files
-          UI.important("Check it required because there were too many files changed.")
+          UI.important("Check is required because there were too many files changed.")
           return true
         end
 
@@ -21,6 +21,42 @@ module Fastlane
         is_check_required = changed_files.size.positive?
         UI.important("Check is required: #{is_check_required}")
         is_check_required
+      end
+
+      # For pull_request: use full PR for `opened` (etc.); for `synchronize` pass
+      # github_event_before/after (e.g. github.event.before/after) to scope to this push.
+      def self.changed_file_paths(params)
+        action = params[:github_event_action].to_s
+        before = params[:github_event_before].to_s.strip
+        after = params[:github_event_after].to_s.strip
+        repo = (params[:github_repository] || ENV['GITHUB_REPOSITORY']).to_s
+
+        if action == 'synchronize' && !before.empty? && !after.empty? && !repo.empty?
+          if before.match?(/\A0+\z/) || !before.match?(/\A[0-9a-f]{7,40}\z/i) || !after.match?(/\A[0-9a-f]{7,40}\z/i)
+            UI.important("Invalid before/after for compare; falling back to full PR file list")
+          else
+            out = self.compare_push_files(repo, before, after)
+            return out unless out.nil?
+
+            UI.important("Could not list push diff (e.g. fork/cross-repo); falling back to full PR file list")
+          end
+        end
+
+        self.gh_path_lines(Actions.sh("gh pr view #{params[:github_pr_num]} --json files -q '.files[].path'"))
+      end
+
+      def self.compare_push_files(repo, before, after)
+        self.gh_path_lines(Actions.sh(
+                             "gh api \"repos/#{repo}/compare/#{before}...#{after}\" " \
+                             "-H \"Accept: application/vnd.github.v3+json\" " \
+                             "-q '.files[].filename'"
+                           ))
+      rescue StandardError
+        nil
+      end
+
+      def self.gh_path_lines(output)
+        output.to_s.split("\n", -1).map(&:strip).reject(&:empty?)
       end
 
       #####################################################
@@ -52,6 +88,31 @@ module Fastlane
             description: 'GitHub PR number',
             optional: true,
             is_string: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_EVENT_ACTION',
+            key: :github_event_action,
+            description: 'pull_request action: e.g. opened, synchronize. When synchronize and before/after ' \
+                         'are set, only files in that push are considered',
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_EVENT_BEFORE',
+            key: :github_event_before,
+            description: 'github.event.before (head ref before the push) for pull_request',
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_EVENT_AFTER',
+            key: :github_event_after,
+            description: 'github.event.after (head ref after the push) for pull_request',
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            env_name: 'GITHUB_REPOSITORY',
+            key: :github_repository,
+            description: 'owner/repo; required for push-scoped file list (defaults to GITHUB_REPOSITORY in CI)',
+            optional: true
           )
         ]
       end
