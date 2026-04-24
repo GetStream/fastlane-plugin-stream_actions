@@ -22,7 +22,6 @@ module Fastlane
         [
           FastlaneCore::ConfigItem.new(
             key: :version,
-            env_name: 'GITHUB_REPOSITORY',
             description: 'Xcode version'
           )
         ]
