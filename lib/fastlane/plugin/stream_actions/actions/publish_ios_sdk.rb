@@ -2,35 +2,40 @@ module Fastlane
   module Actions
     class PublishIosSdkAction < Action
       def self.run(params)
+        skip_spm = params[:skip_spm].to_s.casecmp('true').zero?
+        skip_pods = params[:skip_pods].to_s.casecmp('true').zero?
         version_number = params[:version]
 
-        ensure_everything_is_set_up(params)
-        ensure_release_tag_is_new(version_number)
+        unless skip_spm
+          ensure_everything_is_set_up(params)
+          ensure_release_tag_is_new(version_number)
 
-        changes =
-          if params[:use_changelog]
-            params[:changelog] || other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
-          else
-            version_number
-          end
+          changes =
+            if params[:use_changelog]
+              params[:changelog] || other_action.read_changelog(version: version_number, changelog_path: params[:changelog_path])
+            else
+              version_number
+            end
 
-        release_details = other_action.set_github_release(
-          repository_name: params[:github_repo],
-          api_token: params[:github_token],
-          name: version_number,
-          tag_name: version_number,
-          description: changes,
-          commitish: other_action.current_branch,
-          upload_assets: params[:upload_assets],
-          is_prerelease: version_number.downcase.include?('beta')
-        )
+          other_action.set_github_release(
+            repository_name: params[:github_repo],
+            api_token: params[:github_token],
+            name: version_number,
+            tag_name: version_number,
+            description: changes,
+            commitish: other_action.current_branch,
+            upload_assets: params[:upload_assets],
+            is_prerelease: version_number.downcase.include?('beta')
+          )
+        end
 
-        unless params[:skip_pods].to_s.casecmp('true').zero?
+        unless skip_pods
           podspecs = params[:podspec_names]&.map { |sdk| "#{sdk}.podspec" } || []
           podspecs.each { |podspec| other_action.pod_push_safely(podspec: podspec) }
         end
 
-        UI.success("Github release v#{version_number} was created, please visit #{release_details['html_url']} to see it! 🚢")
+        destination = skip_spm ? 'CocoaPods' : skip_pods ? 'SPM' : 'Error'
+        UI.success("Github release v#{version_number} has been published to #{destination} 🚢")
       end
 
       def self.ensure_everything_is_set_up(params)
@@ -65,6 +70,13 @@ module Fastlane
             description: 'SDK names to release (deprecated)',
             is_string: false,
             optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :skip_spm,
+            description: 'Skip release to GitHub and SPM?',
+            is_string: false,
+            optional: true,
+            default_value: false
           ),
           FastlaneCore::ConfigItem.new(
             key: :skip_pods,
