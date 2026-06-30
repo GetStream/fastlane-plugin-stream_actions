@@ -154,6 +154,35 @@ describe Fastlane do
         expect(run_history_action).to be(false)
       end
 
+      it 'skips when a later same-source commit re-verified after the sources commit failed' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "sourcessha\nchangelogsha\n",
+          files: { 'changelogsha' => "CHANGELOG.md\n", 'sourcessha' => "test1/foo.swift\n" },
+          checks: {
+            # The sources commit failed, but the later CHANGELOG-only commit re-ran the same sources green.
+            'sourcessha' => "Test\tfailure\t2024-01-01T00:00:00Z\nBuild\tsuccess\t2024-01-01T00:00:00Z\n",
+            'changelogsha' => "Test\tsuccess\t2024-01-02T00:00:00Z\nBuild\tsuccess\t2024-01-02T00:00:00Z\n"
+          }
+        )
+
+        expect(run_history_action).to be(false)
+      end
+
+      it 'runs when neither the sources commit nor any later commit passed' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "sourcessha\nchangelogsha\n",
+          files: { 'changelogsha' => "CHANGELOG.md\n", 'sourcessha' => "test1/foo.swift\n" },
+          checks: {
+            'sourcessha' => "Test\tfailure\t2024-01-01T00:00:00Z\nBuild\tsuccess\t2024-01-01T00:00:00Z\n",
+            'changelogsha' => "Test\tfailure\t2024-01-02T00:00:00Z\nBuild\tsuccess\t2024-01-02T00:00:00Z\n"
+          }
+        )
+
+        expect(run_history_action).to be(true)
+      end
+
       it 'skips when no commit in the PR changed sources' do
         stub_history_sh(
           compare: "CHANGELOG.md\n",

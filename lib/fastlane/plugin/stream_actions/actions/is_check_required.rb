@@ -25,8 +25,8 @@ module Fastlane
           return false
         end
 
-        # The current push does not touch :sources. It is only safe to skip if the last commit that
-        # did change :sources had all required checks pass; otherwise :sources were never verified.
+        # The current push does not touch :sources. It is only safe to skip if :sources were already
+        # verified, i.e. all required checks passed on some commit that has the current :sources tree.
         is_check_required = self.required_due_to_history(params, required_checks)
         UI.important("Check is required: #{is_check_required}")
         is_check_required
@@ -36,8 +36,9 @@ module Fastlane
         files.any? { |path| sources.any? { |required| path.start_with?(required) } }
       end
 
-      # Walks the PR commits from newest to oldest until the last commit that changed :sources is
-      # found, then returns whether the check must run based on that commit's required check runs.
+      # Walks the PR commits from newest to oldest. Every commit newer than the last :sources change
+      # has the current :sources tree, so a passing run on any of them means :sources were verified.
+      # The walk stops at the commit that changed :sources, since older commits have different sources.
       def self.required_due_to_history(params, required_checks)
         repo = (params[:github_repository] || ENV['GITHUB_REPOSITORY']).to_s
         if repo.empty?
@@ -51,20 +52,21 @@ module Fastlane
           return true
         end
 
-        sources_sha = shas.find { |sha| self.touches_sources?(self.commit_files(repo, sha), params[:sources]) }
-        if sources_sha.nil?
-          UI.message("No commit in this PR changed sources; nothing to test")
-          return false
+        shas.each do |sha|
+          short = sha[0, 7]
+          if self.required_checks_passed?(repo, sha, required_checks)
+            UI.message("Commit #{short} passed required checks for the current sources; safe to skip")
+            return false
+          end
+
+          next unless self.touches_sources?(self.commit_files(repo, sha), params[:sources])
+
+          UI.important("Last sources commit #{short} was not verified by a passing run; running check")
+          return true
         end
 
-        short = sources_sha[0, 7]
-        if self.required_checks_passed?(repo, sources_sha, required_checks)
-          UI.message("Last sources commit #{short} passed required checks; safe to skip")
-          false
-        else
-          UI.important("Last sources commit #{short} did not pass required checks; running check")
-          true
-        end
+        UI.message("No commit in this PR changed sources; nothing to test")
+        false
       end
 
       # PR commits, newest first (gh returns them oldest first).
