@@ -14,13 +14,102 @@ module Fastlane
           return true
         end
 
-        changed_files.select! do |path|
-          params[:sources].any? { |required| path.start_with?(required) }
+        if self.touches_sources?(changed_files, params[:sources])
+          UI.important("Check is required: true")
+          return true
         end
 
-        is_check_required = changed_files.size.positive?
+        required_checks = params[:required_checks].to_a
+        if required_checks.empty?
+          UI.important("Check is required: false")
+          return false
+        end
+
+        # The current push does not touch :sources. It is only safe to skip if the last commit that
+        # did change :sources had all required checks pass; otherwise :sources were never verified.
+        is_check_required = self.required_due_to_history(params, required_checks)
         UI.important("Check is required: #{is_check_required}")
         is_check_required
+      end
+
+      def self.touches_sources?(files, sources)
+        files.any? { |path| sources.any? { |required| path.start_with?(required) } }
+      end
+
+      # Walks the PR commits from newest to oldest until the last commit that changed :sources is
+      # found, then returns whether the check must run based on that commit's required check runs.
+      def self.required_due_to_history(params, required_checks)
+        repo = (params[:github_repository] || ENV['GITHUB_REPOSITORY']).to_s
+        if repo.empty?
+          UI.important("No repository provided; cannot verify previous runs, running check")
+          return true
+        end
+
+        shas = self.pr_commit_shas(params[:github_pr_num])
+        if shas.empty?
+          UI.important("Could not list PR commits; running check")
+          return true
+        end
+
+        sources_sha = shas.find { |sha| self.touches_sources?(self.commit_files(repo, sha), params[:sources]) }
+        if sources_sha.nil?
+          UI.message("No commit in this PR changed sources; nothing to test")
+          return false
+        end
+
+        short = sources_sha[0, 7]
+        if self.required_checks_passed?(repo, sources_sha, required_checks)
+          UI.message("Last sources commit #{short} passed required checks; safe to skip")
+          false
+        else
+          UI.important("Last sources commit #{short} did not pass required checks; running check")
+          true
+        end
+      end
+
+      # PR commits, newest first (gh returns them oldest first).
+      def self.pr_commit_shas(pr_num)
+        self.gh_path_lines(Actions.sh("gh pr view #{pr_num} --json commits -q '.commits[].oid'")).reverse
+      rescue StandardError
+        []
+      end
+
+      # Files changed by a single commit (relative to its first parent).
+      def self.commit_files(repo, sha)
+        self.gh_path_lines(Actions.sh("gh api repos/#{repo}/commits/#{sha} --paginate -q '.files[].filename'"))
+      rescue StandardError
+        []
+      end
+
+      # True only if every required check has its latest run concluded as 'success' on the commit.
+      def self.required_checks_passed?(repo, sha, required_checks)
+        out = Actions.sh(
+          "gh api \"repos/#{repo}/commits/#{sha}/check-runs?per_page=100\" --paginate " \
+          "-H \"Accept: application/vnd.github.v3+json\" " \
+          "-q '.check_runs[] | \"\\(.name)\\t\\(.conclusion)\\t\\(.completed_at)\"'"
+        )
+        latest = self.latest_conclusions(out)
+        required_checks.all? { |name| latest[name] == 'success' }
+      rescue StandardError
+        false
+      end
+
+      # Reduces "name\tconclusion\tcompleted_at" lines to the latest conclusion per check name,
+      # so re-runs of the same check supersede earlier attempts.
+      def self.latest_conclusions(output)
+        latest = {}
+        seen_at = {}
+        output.to_s.split("\n", -1).each do |line|
+          name, conclusion, completed_at = line.split("\t", -1)
+          next if name.nil? || name.strip.empty?
+
+          completed_at = completed_at.to_s
+          next if seen_at.key?(name) && completed_at < seen_at[name]
+
+          seen_at[name] = completed_at
+          latest[name] = conclusion.to_s
+        end
+        latest
       end
 
       # For pull_request: use full PR for `opened` (etc.); for `synchronize` pass
@@ -82,6 +171,16 @@ module Fastlane
             key: :github_pr_num,
             description: 'GitHub PR number',
             optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :required_checks,
+            description: 'Names of GitHub check runs that must have concluded as success on the last commit ' \
+                         'that changed :sources for the check to be skipped when the current push does not ' \
+                         'touch :sources. When empty, the check is skipped as soon as the current push does ' \
+                         'not touch :sources',
+            is_string: false,
+            optional: true,
+            default_value: []
           ),
           FastlaneCore::ConfigItem.new(
             key: :force_check,
