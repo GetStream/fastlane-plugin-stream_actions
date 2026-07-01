@@ -155,14 +155,47 @@ module Fastlane
       #####################################################
 
       def self.description
-        'Analyzes the impact of changes on PR'
+        'Decides whether a CI check (tests, build, etc.) needs to run for the current pull request state'
+      end
+
+      def self.details
+        <<~DETAILS
+          Skips CI work that has nothing to verify, without ever skipping work that has not been verified yet.
+
+          The action inspects which files changed and returns:
+          - true  -> the caller should run the check
+          - false -> the caller can safely skip it (usually via `next unless is_check_required(...)`)
+
+          How the decision is made:
+          1. If `force_check` is set, or no PR number is available (e.g. a push to a branch), it returns true.
+          2. It collects the changed files. On a `synchronize` event with `github_event_before`/`after`, only
+             the files in that single push are considered; otherwise the whole PR diff is used.
+          3. If more than 99 files changed, it returns true (the GitHub CLI cannot reliably list more).
+          4. If any changed file lives under one of `sources`, the check is relevant -> returns true.
+          5. If no changed file touches `sources`:
+             - With no `required_checks`, it returns false (nothing relevant changed in this push).
+             - With `required_checks`, it confirms the sources were actually verified before skipping. It walks
+               the PR commits newest-to-oldest: every commit newer than the last `sources` change shares the
+               current source tree, so if all `required_checks` concluded `success` on any of them, the sources
+               are proven and it returns false. The walk stops at the commit that changed `sources` (older
+               commits carry different sources); if none of them passed, the sources are unverified -> true.
+               If `sources` were never changed anywhere in the PR, there is nothing to test -> false.
+
+          This is what prevents a docs-only follow-up commit (e.g. editing CHANGELOG.md) from skipping tests
+          when the underlying source changes never passed CI.
+        DETAILS
+      end
+
+      def self.return_value
+        'Boolean. true when the check should run, false when it can be safely skipped for the current PR state.'
       end
 
       def self.available_options
         [
           FastlaneCore::ConfigItem.new(
             key: :sources,
-            description: 'Array of paths to scan',
+            description: 'Paths the check cares about. If a changed file path starts with any of these, the ' \
+                         'check is relevant and must run. Non-empty array of path prefixes, e.g. ["Sources", "Tests"]',
             is_string: false,
             verify_block: proc do |array|
               UI.user_error!("Sources have to be specified") unless array.kind_of?(Array) && array.size.positive?
@@ -171,51 +204,74 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_PR_NUM',
             key: :github_pr_num,
-            description: 'GitHub PR number',
+            description: 'Pull request number to analyze. When empty or nil (e.g. not running for a PR), the ' \
+                         'action always returns true',
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :required_checks,
-            description: 'Names of GitHub check runs that must have concluded as success on the last commit ' \
-                         'that changed :sources for the check to be skipped when the current push does not ' \
-                         'touch :sources. When empty, the check is skipped as soon as the current push does ' \
-                         'not touch :sources',
+            description: 'GitHub check-run names (exactly as shown on the PR, e.g. "Test (iOS 17)") that must ' \
+                         'have concluded as success to prove the current sources were already verified. Only ' \
+                         'consulted when the current push does not touch :sources: the check is skipped only if ' \
+                         'all of these passed on a commit that has the current source tree. When empty, a push ' \
+                         'that does not touch :sources is skipped immediately, without any verification',
             is_string: false,
             optional: true,
             default_value: []
           ),
           FastlaneCore::ConfigItem.new(
             key: :force_check,
-            description: 'GitHub PR number',
+            description: 'When truthy, bypass all analysis and always return true (force the check to run)',
             optional: true,
             is_string: false
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_EVENT_ACTION',
             key: :github_event_action,
-            description: 'pull_request action: e.g. opened, synchronize. When synchronize and before/after ' \
-                         'are set, only files in that push are considered',
+            description: 'The pull_request event action, e.g. "opened" or "synchronize". When "synchronize" and ' \
+                         'github_event_before/after are set, only the files in that push are considered; ' \
+                         'otherwise the full PR diff is used',
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_EVENT_BEFORE',
             key: :github_event_before,
-            description: 'github.event.before (head ref before the push) for pull_request',
+            description: 'github.event.before: the branch head SHA before the push. Combined with ' \
+                         'github_event_after to scope the diff to a single push on synchronize',
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_EVENT_AFTER',
             key: :github_event_after,
-            description: 'github.event.after (head ref after the push) for pull_request',
+            description: 'github.event.after: the branch head SHA after the push. Combined with ' \
+                         'github_event_before to scope the diff to a single push on synchronize',
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
             env_name: 'GITHUB_REPOSITORY',
             key: :github_repository,
-            description: 'owner/repo; required for push-scoped file list (defaults to GITHUB_REPOSITORY in CI)',
+            description: 'Repository in "owner/repo" form. Needed to scope the diff to a push and to look up ' \
+                         'commit history and check runs. Defaults to the GITHUB_REPOSITORY env var set in CI',
             optional: true
           )
         ]
+      end
+
+      def self.example_code
+        [
+          'next unless is_check_required(sources: ["Sources", "Tests"])',
+          'unless is_check_required(
+            sources: ["Sources"],
+            github_pr_num: ENV["GITHUB_PR_NUM"],
+            required_checks: ["Test (iOS 17)", "Build"]
+          )
+            next
+          end'
+        ]
+      end
+
+      def self.category
+        :testing
       end
 
       def self.is_supported?(platform)
