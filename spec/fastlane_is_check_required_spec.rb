@@ -49,6 +49,45 @@ describe Fastlane do
         expect(result).to be(false)
       end
 
+      it 'always requires the check when force_check is set, without inspecting files' do
+        allow(Fastlane::Actions).to receive(:sh)
+
+        result = described_class.new.parse("lane :test do
+          is_check_required(sources: #{test_sources}, github_pr_num: '0', force_check: true)
+        end").runner.execute(:test)
+
+        expect(result).to be(true)
+        expect(Fastlane::Actions).not_to have_received(:sh)
+      end
+
+      it 'requires the check when more than 99 files changed, regardless of sources' do
+        allow(Fastlane::Actions).to receive(:sh).and_return((1..100).map { |i| "#{unexpected_path}#{i}" }.join("\n"))
+
+        result = described_class.new.parse("lane :test do
+          is_check_required(sources: #{test_sources}, github_pr_num: '0')
+        end").runner.execute(:test)
+
+        expect(result).to be(true)
+      end
+
+      it 'falls back to the full PR file list when before/after are not valid SHAs' do
+        allow(Fastlane::Actions).to receive(:sh).and_return("test1/foo\n")
+
+        described_class.new.parse("lane :test do
+          is_check_required(
+            sources: #{test_sources},
+            github_pr_num: '0',
+            github_event_action: 'synchronize',
+            github_event_before: '#{'0' * 40}',
+            github_event_after: '#{'b' * 40}',
+            github_repository: 'o/r'
+          )
+        end").runner.execute(:test)
+
+        expect(Fastlane::Actions).to have_received(:sh).once
+        expect(Fastlane::Actions).to have_received(:sh).with(a_string_including('gh pr view'))
+      end
+
       it 'on synchronize, lists files from compare between before and after' do
         b = "a" * 40
         c = "b" * 40
@@ -178,6 +217,96 @@ describe Fastlane do
             'sourcessha' => "Test\tfailure\t2024-01-01T00:00:00Z\nBuild\tsuccess\t2024-01-01T00:00:00Z\n",
             'changelogsha' => "Test\tfailure\t2024-01-02T00:00:00Z\nBuild\tsuccess\t2024-01-02T00:00:00Z\n"
           }
+        )
+
+        expect(run_history_action).to be(true)
+      end
+
+      it 'runs when the sources commit was cancelled' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "sourcessha\nchangelogsha\n",
+          files: { 'changelogsha' => "CHANGELOG.md\n", 'sourcessha' => "test1/foo.swift\n" },
+          checks: {
+            'sourcessha' => "Test\tcancelled\t2024-01-01T00:00:00Z\nBuild\tsuccess\t2024-01-01T00:00:00Z\n"
+          }
+        )
+
+        expect(run_history_action).to be(true)
+      end
+
+      it 'runs when the sources commit and every later commit were cancelled' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "sourcessha\nchangelogcancel\nchangelogsha\n",
+          files: {
+            'changelogsha' => "CHANGELOG.md\n",
+            'changelogcancel' => "CHANGELOG.md\n",
+            'sourcessha' => "test1/foo.swift\n"
+          },
+          checks: {
+            'sourcessha' => "Test\tcancelled\t2024-01-01T00:00:00Z\nBuild\tsuccess\t2024-01-01T00:00:00Z\n",
+            'changelogcancel' => "Test\tcancelled\t2024-01-02T00:00:00Z\nBuild\tsuccess\t2024-01-02T00:00:00Z\n"
+          }
+        )
+
+        expect(run_history_action).to be(true)
+      end
+
+      it 'runs when the latest sources commit failed even though an older sources commit passed' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          # oldest first: sources passed, then sources changed again and failed, then a CHANGELOG-only push.
+          commits: "srcpass\nsrcfail\nchangelogsha\n",
+          files: {
+            'changelogsha' => "CHANGELOG.md\n",
+            'srcfail' => "test1/foo.swift\n",
+            'srcpass' => "test1/foo.swift\n"
+          },
+          checks: {
+            # The older passing run verified different (superseded) sources, so it must be ignored.
+            'srcpass' => "Test\tsuccess\t2024-01-01T00:00:00Z\nBuild\tsuccess\t2024-01-01T00:00:00Z\n",
+            'srcfail' => "Test\tfailure\t2024-01-02T00:00:00Z\nBuild\tsuccess\t2024-01-02T00:00:00Z\n"
+          }
+        )
+
+        expect(run_history_action).to be(true)
+      end
+
+      it 'runs when a required check never ran on the sources commit' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "sourcessha\nchangelogsha\n",
+          files: { 'changelogsha' => "CHANGELOG.md\n", 'sourcessha' => "test1/foo.swift\n" },
+          checks: {
+            # Only "Build" ran; the required "Test" check is absent, so the sources are not fully verified.
+            'sourcessha' => "Build\tsuccess\t2024-01-01T00:00:00Z\n"
+          }
+        )
+
+        expect(run_history_action).to be(true)
+      end
+
+      it 'runs when the repository is unknown so previous runs cannot be verified' do
+        allow(Fastlane::Actions).to receive(:sh).and_return("CHANGELOG.md\n")
+
+        result = described_class.new.parse("lane :test do
+          is_check_required(
+            sources: #{test_sources},
+            github_pr_num: '0',
+            required_checks: ['Test', 'Build']
+          )
+        end").runner.execute(:test)
+
+        expect(result).to be(true)
+      end
+
+      it 'runs when the PR commit list cannot be read' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "\n",
+          files: {},
+          checks: {}
         )
 
         expect(run_history_action).to be(true)
