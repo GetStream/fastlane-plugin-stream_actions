@@ -289,6 +289,9 @@ describe Fastlane do
 
       it 'runs when the repository is unknown so previous runs cannot be verified' do
         allow(Fastlane::Actions).to receive(:sh).and_return("CHANGELOG.md\n")
+        # GitHub Actions always sets GITHUB_REPOSITORY, so force the "no repository" condition explicitly.
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('GITHUB_REPOSITORY').and_return(nil)
 
         result = described_class.new.parse("lane :test do
           is_check_required(
