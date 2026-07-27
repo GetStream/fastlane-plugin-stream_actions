@@ -28,6 +28,16 @@ describe Fastlane do
         end").runner.execute(:test)
       end
 
+      it 'verifies that simulator can be prepared without waiting for boot' do
+        expect(Fastlane::Actions::PrepareSimulatorAction).to receive(:sh).with(/xcrun simctl boot /)
+
+        result = described_class.new.parse("lane :test do
+          prepare_simulator(device: '#{sim_name}', wait_for_boot: false)
+        end").runner.execute(:test)
+        expect(result).not_to be_nil
+        expect(result).not_to be_empty
+      end
+
       it 'raises an error after providing a wrong name of the simulator' do
         expect do
           described_class.new.parse("lane :test do

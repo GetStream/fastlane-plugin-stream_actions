@@ -25,7 +25,11 @@ module Fastlane
         end
 
         sim.reset if sim && params[:reset]
-        sh("xcrun simctl bootstatus #{udid} -b")
+        if params[:wait_for_boot]
+          sh("xcrun simctl bootstatus #{udid} -b")
+        else
+          sh("xcrun simctl boot #{udid} || true")
+        end
         UI.success("Simulator #{device_name} #{ios_version_with_brackets} is ready")
         udid
       end
@@ -49,6 +53,13 @@ module Fastlane
             key: :reset,
             description: 'Reset simulator contents',
             optional: true,
+            is_string: false
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :wait_for_boot,
+            description: 'Wait for simulator to finish booting',
+            optional: true,
+            default_value: true,
             is_string: false
           )
         ]
