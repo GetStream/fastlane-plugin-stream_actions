@@ -43,10 +43,14 @@ module Fastlane
         changelog =
           if params[:use_changelog]
             version = params[:is_manual_upload] ? 'Upcoming' : params[:app_version]
+            # Strip variation selectors and ZWJ: pilot removes emoji from the changelog, but leaves
+            # these invisible companions behind, and App Store Connect rejects them in whatsNew
             other_action.read_changelog(
               version: version,
               changelog_path: params[:changelog_path]
-            ).gsub(/^### (.+)$/) { $1.upcase }.gsub(%r{\[(#\d+)\]\(https?://[^)]+\)}, '(\1)')
+            ).gsub(/^### (.+)$/) { $1.upcase }
+                        .gsub(%r{\[(#\d+)\]\(https?://[^)]+\)}, '(\1)')
+                        .gsub(/[\u{FE0E}\u{FE0F}\u{200D}]/, '')
           else
             testflight_instructions(params)
           end
