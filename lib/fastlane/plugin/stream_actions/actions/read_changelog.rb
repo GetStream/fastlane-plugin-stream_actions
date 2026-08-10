@@ -18,8 +18,12 @@ module Fastlane
           changes << line
         end
 
-        UI.user_error!("No changelog found for #{params[:version]}") unless changes.length > 0
-        UI.success("Changelog for #{params[:version]}: \n#{changes}")
+        if changes.strip.empty?
+          changes = params[:default_changes]
+          UI.important("No changelog found for #{params[:version]}, using default: \n#{changes}")
+        else
+          UI.success("Changelog for #{params[:version]}: \n#{changes}")
+        end
         changes
       end
 
@@ -46,6 +50,13 @@ module Fastlane
             description: 'The path to your project CHANGELOG.md',
             is_string: true,
             default_value: './CHANGELOG.md',
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :default_changes,
+            description: 'The default changelog entry if no changes provided',
+            is_string: true,
+            default_value: '- Bug fixes and improvements',
             optional: true
           )
         ]

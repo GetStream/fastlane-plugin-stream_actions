@@ -71,12 +71,20 @@ describe Fastlane do
         expect(result).to eq(expected_result)
       end
 
-      it 'raises an error after providing a non-existent release version' do
-        expect do
-          described_class.new.parse("lane :test do
-            read_changelog(changelog_path: '../#{changelog}', version: '#{non_existent_version}')
-          end").runner.execute(:test)
-        end.to raise_error("No changelog found for #{non_existent_version}")
+      it 'returns default changes after providing a non-existent release version' do
+        result = described_class.new.parse("lane :test do
+          read_changelog(changelog_path: '../#{changelog}', version: '#{non_existent_version}')
+        end").runner.execute(:test)
+
+        expect(result).to eq('- Bug fixes and improvements')
+      end
+
+      it 'returns custom default changes after providing a non-existent release version' do
+        result = described_class.new.parse("lane :test do
+          read_changelog(changelog_path: '../#{changelog}', version: '#{non_existent_version}', default_changes: '- #{text}')
+        end").runner.execute(:test)
+
+        expect(result).to eq("- #{text}")
       end
 
       it 'raises an error after skipping the version' do
