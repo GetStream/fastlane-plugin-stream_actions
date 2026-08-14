@@ -43,14 +43,12 @@ module Fastlane
         changelog =
           if params[:use_changelog]
             version = params[:is_manual_upload] ? 'Upcoming' : params[:app_version]
-            # Strip variation selectors and ZWJ: pilot removes emoji from the changelog, but leaves
-            # these invisible companions behind, and App Store Connect rejects them in whatsNew
-            other_action.read_changelog(
-              version: version,
-              changelog_path: params[:changelog_path]
-            ).gsub(/^### (.+)$/) { $1.upcase }
-                        .gsub(%r{\[(#\d+)\]\(https?://[^)]+\)}, '(\1)')
-                        .gsub(/[\u{FE0E}\u{FE0F}\u{200D}]/, '')
+            sanitize_changelog(
+              other_action.read_changelog(
+                version: version,
+                changelog_path: params[:changelog_path]
+              )
+            )
           else
             testflight_instructions(params)
           end
@@ -74,6 +72,15 @@ module Fastlane
           message = "Build for regression testing №#{build_number} has been uploaded to TestFlight 🎁"
           sh("gh pr comment #{params[:github_pr_num]} -b '#{message}'")
         end
+      end
+
+      # Strip all pictographs and their companions (skin tones, flags, variation selectors,
+      # ZWJ, keycaps, tag chars): pilot's own emoji stripper misses text-presentation symbols
+      # like U+26A0 and leaves companions behind, and App Store Connect rejects them in whatsNew
+      def self.sanitize_changelog(changelog)
+        changelog.gsub(/^### (.+)$/) { $1.upcase }
+                 .gsub(%r{\[(#\d+)\]\(https?://[^)]+\)}, '(\1)')
+                 .gsub(/[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/, '')
       end
 
       def self.testflight_instructions(params)
