@@ -25,17 +25,17 @@ module Fastlane
         if body =~ /\brevision:/ || body.include?('.revision(')
           violations << violation(dependency, 'revision-pinned dependency — pin it with `from:` or `exact:` instead')
         end
-        if body.include?('..<') || body =~ /"\s*\.\.\.\s*"/ || body.include?('.upToNextMinor(')
-          violations << violation(dependency, 'version-range dependency — pin it with `from:` or `exact:` instead')
-        end
         if body =~ /\bpath:/
           violations << violation(dependency, 'local path dependency — it will not resolve for package consumers')
         end
         if dependency[:url] && dependency[:url] !~ %r{\Ahttps://}
           violations << violation(dependency, 'insecure or non-https url — use `https://`')
         end
-        if violations.empty? && body !~ /\b(from|exact):/ && !body.include?('.exact(') && !body.include?('.upToNextMajor(')
-          violations << violation(dependency, 'missing version requirement — pin it with `from:` or `exact:`')
+        if violations.empty? && !version_requirement?(body)
+          violations << violation(
+            dependency,
+            'missing version requirement — pin it with `from:`, `exact:`, or a version range'
+          )
         end
         violations
       end
@@ -50,6 +50,15 @@ module Fastlane
             lines = group.map { |dependency| dependency[:line] }.join(', ')
             "- #{group.first[:url]} (lines #{lines}): duplicate dependency"
           end
+      end
+
+      def self.version_requirement?(body)
+        body =~ /\b(from|exact):/ ||
+          body.include?('.exact(') ||
+          body.include?('.upToNextMajor(') ||
+          body.include?('.upToNextMinor(') ||
+          body.include?('..<') ||
+          body =~ /"\s*\.\.\.\s*"/
       end
 
       def self.violation(dependency, message)
@@ -98,8 +107,9 @@ module Fastlane
       end
 
       def self.details
-        'Fails if any dependency is declared via branch, revision, version range, local path, ' \
-          'insecure url, or is duplicated. All dependencies should be pinned with `from:` or `exact:`.'
+        'Fails if any dependency is declared via branch, revision, local path, ' \
+          'insecure url, or is duplicated. Dependencies should be pinned with `from:`, `exact:`, ' \
+          'or a closed version range.'
       end
 
       def self.available_options
