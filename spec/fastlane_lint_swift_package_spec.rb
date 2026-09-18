@@ -30,11 +30,14 @@ describe Fastlane do
         SWIFT
       end
 
-      it 'passes when all dependencies are pinned with from or exact' do
+      it 'passes when all dependencies are pinned with from, exact, or a version range' do
         write_package(<<~DEPS)
             .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
             .package(url: "https://github.com/GetStream/stream-core-swift.git", exact: "1.2.3"),
-            .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.0.0"))
+            .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", .upToNextMajor(from: "1.0.0")),
+            .package(url: "https://github.com/apple/swift-protobuf.git", "1.38.0"..."1.39.0"),
+            .package(url: "https://github.com/apple/swift-log.git", "1.0.0"..<"2.0.0"),
+            .package(url: "https://github.com/apple/swift-async-algorithms.git", .upToNextMinor(from: "1.0.0"))
         DEPS
 
         expect { lint }.not_to raise_error
@@ -56,18 +59,6 @@ describe Fastlane do
         write_package('.package(url: "https://github.com/apple/swift-nio.git", revision: "f1c2d3e")')
 
         expect { lint }.to raise_error(/revision-pinned dependency/)
-      end
-
-      it 'fails when a dependency uses a version range' do
-        write_package('.package(url: "https://github.com/apple/swift-nio.git", "1.0.0"..<"2.0.0")')
-
-        expect { lint }.to raise_error(/version-range dependency/)
-      end
-
-      it 'fails when a dependency uses upToNextMinor' do
-        write_package('.package(url: "https://github.com/apple/swift-nio.git", .upToNextMinor(from: "1.0.0"))')
-
-        expect { lint }.to raise_error(/version-range dependency/)
       end
 
       it 'fails when a dependency uses a local path' do
