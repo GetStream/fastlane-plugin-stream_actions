@@ -312,9 +312,10 @@ module Fastlane
             key: :ignored_diff_lines,
             description: 'Per run_all path or glob, regexes of changed lines that do not affect tests, ' \
                          'e.g. file membership in project.pbxproj. The path runs all tests only if another line changed. ' \
-                         'Needs the git diff, so it does not apply to changed_files',
+                         'Needs the git diff, so it does not apply to changed_files. Defaults to target membership ' \
+                         'edits in **/*.pbxproj; passing a hash replaces the default',
             type: Hash,
-            default_value: {}
+            default_value: { '**/*.pbxproj' => Helper::TestCoverageMapHelper::XCODE_PROJECT_IGNORED_LINES }
           ),
           FastlaneCore::ConfigItem.new(
             key: :hot_test_ratio,

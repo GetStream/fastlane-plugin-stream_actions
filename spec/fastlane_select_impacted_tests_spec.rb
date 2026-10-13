@@ -160,6 +160,24 @@ describe Fastlane do
         expect(select(nil, diff_base: 'membership', ignored_diff_lines: ignored)['run_all']).to be(true)
       end
 
+      it 'ignores target membership edits in project.pbxproj by default' do
+        project = "\t\tA1 /* Exceptions for \"Sources\" folder in \"App\" target */ = {\n" \
+                  "\t\t\tisa = PBXFileSystemSynchronizedBuildFileExceptionSet;\n" \
+                  "\t\t\tmembershipExceptions = (\n\t\t\t\tOld.swift,\n\t\t\t);\n\t\t\ttarget = B2 /* App */;\n\t\t};\n"
+        Dir.chdir(root) do
+          FileUtils.mkdir_p('App.xcodeproj')
+          File.write('App.xcodeproj/project.pbxproj', "IPHONEOS_DEPLOYMENT_TARGET = 13.0;\n")
+          system('git add -A && git commit -qm project && git tag project')
+          File.write('App.xcodeproj/project.pbxproj', "IPHONEOS_DEPLOYMENT_TARGET = 13.0;\n#{project}")
+          system('git add -A && git commit -qm membership && git tag membership')
+          File.write('App.xcodeproj/project.pbxproj', "IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n#{project}")
+          system('git add -A && git commit -qm setting')
+        end
+
+        expect(select(nil, diff_base: 'project', diff_head: 'membership')['run_all']).to be(false)
+        expect(select(nil, diff_base: 'membership')['run_all']).to be(true)
+      end
+
       it 'treats newly added code files as covered by the files that use them' do
         selection = select(nil, diff_base: 'base')
 

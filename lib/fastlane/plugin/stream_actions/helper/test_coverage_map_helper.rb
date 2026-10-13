@@ -6,6 +6,20 @@ module Fastlane
   module Helper
     # Reads, writes and downloads the per-test coverage maps of build_test_coverage_map and select_impacted_tests.
     class TestCoverageMapHelper
+      # Changed project.pbxproj lines that only move files in and out of targets; the files themselves are diffed and
+      # mapped. List items (`ID /* Name */,`) also cover packageProductDependencies and target dependencies.
+      XCODE_PROJECT_IGNORED_LINES = [
+        '/\* .+ \*/,?$',
+        '/\* .+ \*/ = \{isa = PBX(BuildFile|FileReference); ',
+        '/\* Exceptions for .+ \*/ = \{$',
+        '^\s*isa = PBXFileSystemSynchronized\w*ExceptionSet;$',
+        '^\s*(buildPhase|target) = \w+ /\* .+ \*/;$',
+        '^\s*(children|exceptions|files|membershipExceptions) = \($',
+        '^\s*[^=]+\.\w+,$',
+        '^\s*\)?;?$',
+        '^\s*\};$'
+      ].freeze
+
       MAP_VERSION = 1
 
       # Downloads the newest unexpired artifact with this name produced on coverage_map_branch.
