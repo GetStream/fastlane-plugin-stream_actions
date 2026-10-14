@@ -7,7 +7,7 @@ module Fastlane
     class SelectImpactedTestsAction < Action
       CODE_EXTENSIONS = %w[.swift .m .mm .h .kt .java .dart .js .jsx .ts .tsx].freeze
       MODIFIERS = '(?:(?:public|open|internal|fileprivate|private|final|indirect|nonisolated|data|sealed|abstract|export|default)\\s+)*'
-      DECLARATION = /^\s*(?:@\w+(?:\([^)\n]*\))?\s+)*#{MODIFIERS}(?:class|struct|enum|protocol|actor|typealias|extension|interface|object)\s+([A-Za-z_]\w*)/.freeze
+      DECLARATION = /^\s*(?:@\w+(?:\([^)\n]*\))?\s+)*#{MODIFIERS}(class|struct|enum|protocol|actor|typealias|extension|interface|object)\s+([A-Za-z_]\w*)/.freeze
 
       def self.run(params)
         source_root = File.expand_path(params[:source_root] || Dir.pwd)
@@ -35,7 +35,7 @@ module Fastlane
         map = load_map(params)
         return run_all(all_tests, 'no coverage map') if map.nil?
 
-        age_days = (Time.now.utc - Time.parse(map['generated_at'])) / 86_400
+        age_days = (Time.now.utc - map['generated_at']) / 86_400
         return run_all(all_tests, "the coverage map is #{age_days.round(1)} days old") if age_days > params[:max_map_age_days]
 
         tests_by_file = Hash.new { |hash, key| hash[key] = [] }
@@ -60,18 +60,23 @@ module Fastlane
           elsif matches_any?(file, params[:source_paths])
             return run_all(all_tests, "#{file} is not in the coverage map") unless CODE_EXTENSIONS.include?(File.extname(file))
 
-            if status == 'A' || status == 'D'
-              reasons << "#{file}: #{status == 'A' ? 'added' : 'deleted'}, so the files using it changed too"
+            if status == 'D'
+              reasons << "#{file}: deleted, so the files using it changed too"
               next
             end
 
             # Declaration-only files (models, protocols, constants) have no executable regions, so coverage
             # never lists them. Their declarations still matter, e.g. a Codable key, so run the tests of the
             # mapped files that reference the declared types.
-            names = declared_names(file, source_root, params)
+            names = declared_names(file, source_root, params, added: status == 'A')
+            users = names.empty? ? [] : referencing_files(names, known_sources - [file], source_root, params)
+            if status == 'A' && users.empty?
+              reasons << "#{file}: added, so the files using it changed too"
+              next
+            end
             return run_all(all_tests, "#{file} is not in the coverage map and declares no types") if names.empty?
+            return run_all(all_tests, "#{file} is not in the coverage map and no mapped file uses #{names.join(', ')}") if users.empty?
 
-            users = referencing_files(names, known_sources - [file], source_root)
             tests = users.flat_map { |user| tests_by_file[user] }.uniq
             selected.concat(impacted(tests, all_tests, mapped_count, params))
             reasons << "#{file}: #{describe(tests, mapped_count, params)} of the #{users.size} mapped files using #{names.join(', ')}"
@@ -125,8 +130,9 @@ module Fastlane
 
         regexes = patterns.map { |pattern| Regexp.new(pattern) }
         lines = Helper::TestCoverageMapHelper.command('git', 'diff', '-U0', diff_range(params), '--', file).lines.map(&:chomp)
-        changed = lines.select { |line| line.match?(/^[+-]/) && !line.match?(/^(\+\+\+|---) /) }.map { |line| line[1..-1] }
-        changed.all? { |line| regexes.any? { |regex| line.match?(regex) } }
+        hunks = lines.drop_while { |line| !line.start_with?('@@') }
+        changed = hunks.grep(/^[+-]/).map { |line| line[1..-1] }
+        !changed.empty? && changed.all? { |line| regexes.any? { |regex| line.match?(regex) } }
       rescue StandardError => e
         UI.important("Could not read the diff of #{file}: #{e.message}")
         false
@@ -145,49 +151,56 @@ module Fastlane
 
       def self.test_classes(file, source_root)
         path = File.join(source_root, file)
-        classes = File.exist?(path) ? File.read(path).scan(/^\s*(?:(?:public|open|final|internal)\s+)*class\s+(\w+)/).flatten : []
+        classes = File.exist?(path) ? File.read(path).scan(/^\s*(?:@\w+(?:\([^)\n]*\))?\s+)*(?:(?:public|open|final|internal)\s+)*(?:class|extension)\s+(\w+)/).flatten : []
         classes.empty? ? [File.basename(file, '.*')] : classes
       end
 
       # Code nearly every test runs (app start, login, the main screen) would select everything. With
       # hot_test_ratio such a change runs one test per class instead, leaving the rest to the full nightly run.
       def self.impacted(tests, all_tests, mapped_count, params)
-        return smoke_tests(all_tests) if hot?(tests, mapped_count, params)
-
-        all_tests.select { |id| tests.include?(test_key(id)) }
+        running = all_tests.select { |id| tests.include?(test_key(id)) }
+        hot?(tests, mapped_count, params) ? smoke_tests(running) : running
       end
 
       def self.hot?(tests, mapped_count, params)
         params[:hot_test_ratio] && mapped_count.positive? && tests.size >= params[:hot_test_ratio] * mapped_count
       end
 
-      def self.smoke_tests(all_tests)
-        all_tests.group_by { |id| test_key(id).split('/').first }.values.map(&:first)
+      def self.smoke_tests(tests)
+        tests.group_by { |id| test_key(id).split('/').first }.values.map(&:first)
       end
 
       def self.describe(tests, mapped_count, params)
         hot?(tests, mapped_count, params) ? "run by #{tests.size} tests, so one test per class" : "#{tests.size} tests"
       end
 
-      def self.declared_names(file, source_root, params)
+      # A new type does nothing until a changed file uses it, so an added file counts only the existing types it extends.
+      def self.declared_names(file, source_root, params, added: false)
         content = begin
           params[:changed_files] ? File.read(File.join(source_root, file)) : Helper::TestCoverageMapHelper.command('git', 'show', "#{params[:diff_head]}:#{file}")
         rescue StandardError
           ''
         end
-        content.scan(DECLARATION).flatten.uniq
+        extended, declared = content.scan(DECLARATION).partition { |kind, _| kind == 'extension' }.map { |list| list.map(&:last).uniq }
+        added ? extended - declared : (declared + extended).uniq
       end
 
-      def self.referencing_files(names, files, source_root)
+      # Reads the files at diff_head, like declared_names, so the lookup does not depend on what is checked out.
+      def self.referencing_files(names, files, source_root, params)
+        return Helper::TestCoverageMapHelper.files_containing(names, params[:diff_head], files) unless params[:changed_files]
+
         pattern = /\b(?:#{names.map { |name| Regexp.escape(name) }.join('|')})\b/
         files.select do |file|
           path = File.join(source_root, file)
           File.exist?(path) && File.read(path).match?(pattern)
         end
+      rescue StandardError => e
+        UI.important("Could not search for #{names.join(', ')}: #{e.message}")
+        []
       end
 
       def self.matches_any?(file, patterns)
-        patterns.to_a.any? do |pattern|
+        patterns.to_a.map(&:to_s).any? do |pattern|
           if pattern.include?('*')
             File.fnmatch?(pattern, file, File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH)
           else
@@ -225,12 +238,14 @@ module Fastlane
           it cannot prove a test is unaffected:
           - the changed files or the map are unavailable, or the map is older than `max_map_age_days`;
           - a changed file matches `run_all_paths` (test infrastructure, build settings, CI config);
-          - a changed file under `source_paths` is not in the map and is not code (e.g. resources).
-          A changed code file that is not in the map and was not added or deleted is declaration-only (coverage
-          lists only files with executable code): it selects the tests of the mapped files that reference the
-          types it declares.
-          A changed file under `test_paths` selects every test of the classes it declares, and tests that are not
+          - a changed file under `source_paths` is not in the map and is not code (e.g. resources), or is a
+            declaration-only code file that no mapped file references.
+          A modified code file that is not in the map is declaration-only (coverage lists only files with executable
+          code): it selects the tests of the mapped files that reference the types it declares. An added file only counts
+          the existing types it extends, as its new types run through the changed files using them.
+          A changed file under `test_paths` selects every test of the classes it declares or extends, and tests that are not
           in the map yet (added after it was built) always run. Files outside all paths are ignored.
+          A changed file is matched against run_all_paths first, then ignore_paths, then test_paths, then the map.
           With `hot_test_ratio`, a file that (nearly) every test runs selects one test per class instead of all tests;
           use it only when a full run on the base branch catches what that sample misses.
         DETAILS
@@ -298,7 +313,8 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :ignore_paths,
-            description: 'Path prefixes or globs that never affect tests, e.g. code generation configs inside source_paths',
+            description: 'Path prefixes or globs that do not affect tests, e.g. code generation configs inside source_paths. ' \
+                         'run_all_paths takes precedence, so a run_all file inside an ignored glob still runs all tests',
             type: Array,
             default_value: []
           ),

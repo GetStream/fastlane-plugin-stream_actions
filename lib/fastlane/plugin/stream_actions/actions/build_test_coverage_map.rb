@@ -89,8 +89,26 @@ module Fastlane
         }
       end
 
-      # A failed test stops early, so its fresh coverage can miss code it normally runs.
+      # A failed test stops early, so its fresh coverage can miss code it normally runs. Without its previous
+      # coverage the test leaves the map, and select_impacted_tests runs tests that are not in the map every time.
       def self.carry_over_failed_tests(tests, sources, params)
+        previous = previous_map(params)
+        params[:failed_tests].to_a.each do |failed_test|
+          test = failed_test.split('/').last(2).join('/')
+          previous_files = previous && previous['tests'][test]
+          if previous_files.nil?
+            tests.delete(test)
+            UI.important("No previous coverage of the failed #{test}, so it runs on every pull request until it passes")
+            next
+          end
+
+          tests[test] = (tests[test].to_a | previous_files)
+          sources.concat(previous_files - sources)
+          UI.message("Kept the previous coverage of the failed #{test}")
+        end
+      end
+
+      def self.previous_map(params)
         path = params[:previous_map]
         if path.nil? && params[:previous_map_artifact]
           path = Helper::TestCoverageMapHelper.download_map(
@@ -99,18 +117,12 @@ module Fastlane
             github_repository: params[:github_repository]
           )
         end
-        return if path.nil? || !File.exist?(path)
+        return nil if path.nil? || !File.exist?(path)
 
-        previous = Helper::TestCoverageMapHelper.read_map(path)
-        params[:failed_tests].to_a.each do |failed_test|
-          test = failed_test.split('/').last(2).join('/')
-          previous_files = previous['tests'][test]
-          next if previous_files.nil?
-
-          tests[test] = (tests[test].to_a | previous_files)
-          sources.concat(previous_files - sources)
-          UI.message("Kept the previous coverage of the failed #{test}")
-        end
+        Helper::TestCoverageMapHelper.read_map(path)
+      rescue StandardError => e
+        UI.important("Could not read the previous coverage map: #{e.message}")
+        nil
       end
 
       # Keeps sources the repository tracks, dropping e.g. package checkouts cloned inside it.
@@ -207,7 +219,8 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :failed_tests,
-            description: 'Tests that failed in this run, as Class/test or Target/Class/test',
+            description: 'Tests that failed in this run, as Class/test or Target/Class/test. Each takes its previous coverage, ' \
+                         'or leaves the map when there is none',
             type: Array,
             optional: true,
             default_value: []

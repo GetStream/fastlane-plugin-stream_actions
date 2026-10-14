@@ -1,5 +1,6 @@
 require 'json'
 require 'open3'
+require 'time'
 require 'tmpdir'
 
 module Fastlane
@@ -45,12 +46,28 @@ module Fastlane
         output
       end
 
+      # Files of the list that contain one of the words at the given revision.
+      def self.files_containing(words, revision, files)
+        patterns = words.flat_map { |word| ['-e', word] }
+        prefix = /\A#{Regexp.escape(revision)}:/
+        files.each_slice(500).flat_map do |slice|
+          output, status = Open3.capture2e('git', 'grep', '-l', '-w', '-F', *patterns, revision, '--', *slice)
+          raise "`git grep` failed: #{output}" unless status.success? || status.exitstatus == 1
+
+          output.split("\n").map { |line| line.sub(prefix, '') }
+        end
+      end
+
       def self.read_map(path)
         map = JSON.parse(File.read(path))
         UI.user_error!("Unsupported coverage map version #{map['version']}") unless map['version'] == MAP_VERSION
+        generated_at = Time.iso8601(map['generated_at'].to_s)
 
         sources = map['sources']
-        map.merge('tests' => map['tests'].transform_values { |indices| indices.map { |i| sources.fetch(i) } })
+        map.merge(
+          'generated_at' => generated_at,
+          'tests' => map['tests'].transform_values { |indices| indices.map { |i| sources.fetch(i) } }
+        )
       end
     end
   end

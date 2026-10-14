@@ -59,6 +59,13 @@ describe Fastlane do
       expect(selection['tests']).to eq(['UITests/Messages_Tests/test_send', 'UITests/Reactions_Tests/test_add', 'UITests/New_Tests/test_new'])
     end
 
+    it 'samples hot files only from the tests that run them' do
+      selection = select(['Sources/Message.swift'], hot_test_ratio: 0.6)
+
+      expect(selection['run_all']).to be(false)
+      expect(selection['tests']).to eq(['UITests/Messages_Tests/test_send', 'UITests/New_Tests/test_new'])
+    end
+
     it 'runs every test of a file most tests run without hot_test_ratio' do
       expect(select(['Sources/Client.swift'])['tests']).to eq(all_tests)
     end
@@ -73,7 +80,7 @@ describe Fastlane do
 
     it 'runs every test of a changed test class' do
       FileUtils.mkdir_p(File.join(root, 'UITests/Tests'))
-      File.write(File.join(root, 'UITests/Tests/Messages_Tests.swift'), "final class Messages_Tests: StreamTestCase {}\n")
+      File.write(File.join(root, 'UITests/Tests/Messages_Tests.swift'), "@MainActor final class Messages_Tests: StreamTestCase {}\n")
 
       selection = select(['UITests/Tests/Messages_Tests.swift'])
 
@@ -81,8 +88,19 @@ describe Fastlane do
       expect(selection['tests']).not_to include('UITests/Reactions_Tests/test_add')
     end
 
+    it 'runs every test of the class a test file extends' do
+      FileUtils.mkdir_p(File.join(root, 'UITests/Tests'))
+      File.write(File.join(root, 'UITests/Tests/Messages+Editing_Tests.swift'), "extension Messages_Tests {\n  func test_edit() {}\n}\n")
+
+      expect(select(['UITests/Tests/Messages+Editing_Tests.swift'])['tests']).to include('UITests/Messages_Tests/test_send', 'UITests/Messages_Tests/test_edit')
+    end
+
     it 'falls back to the file name for a deleted test class' do
       expect(select(['UITests/Tests/Reactions_Tests.swift'])['tests']).to include('UITests/Reactions_Tests/test_add')
+    end
+
+    it 'runs all tests for a run_all path even when ignore_paths also matches it' do
+      expect(select(['.github/workflows/smoke.yml'], run_all_paths: ['.github/workflows/smoke.yml'], ignore_paths: ['**/*.yml'])['run_all']).to be(true)
     end
 
     it 'runs all tests when a run_all path changes' do
@@ -108,6 +126,16 @@ describe Fastlane do
       expect(selection['tests']).to eq(['UITests/Reactions_Tests/test_add', 'UITests/New_Tests/test_new'])
     end
 
+    it 'runs all tests for a declaration-only file that no mapped file uses' do
+      FileUtils.mkdir_p(File.join(root, 'Sources'))
+      File.write(File.join(root, 'Sources/Orphan.swift'), "struct OrphanPayload: Codable {}\n")
+
+      selection = select(['Sources/Orphan.swift'])
+
+      expect(selection['run_all']).to be(true)
+      expect(selection['reasons'].first).to include('no mapped file uses OrphanPayload')
+    end
+
     it 'runs all tests for an unmapped code file that declares no types' do
       FileUtils.mkdir_p(File.join(root, 'Sources'))
       File.write(File.join(root, 'Sources/Constants.swift'), "let timeout = 5\n")
@@ -121,6 +149,25 @@ describe Fastlane do
 
     it 'runs all tests without a map' do
       expect(select(['Sources/Reaction.swift'], coverage_map: File.join(root, 'missing.json'))['run_all']).to be(true)
+    end
+
+    context 'with a map without generated_at' do
+      before { File.write(map_path, JSON.generate('version' => 1, 'sources' => [], 'tests' => {})) }
+
+      it 'runs all tests' do
+        selection = select(['Sources/Reaction.swift'])
+
+        expect(selection['run_all']).to be(true)
+        expect(selection['reasons']).to eq(['no coverage map'])
+      end
+    end
+
+    context 'with a map whose generated_at is not a date' do
+      let(:generated_at) { 'yesterday' }
+
+      it 'runs all tests' do
+        expect(select(['Sources/Reaction.swift'])['reasons']).to eq(['no coverage map'])
+      end
     end
 
     context 'with a stale map' do
@@ -158,6 +205,33 @@ describe Fastlane do
 
         expect(select(nil, diff_base: 'project', diff_head: 'membership', ignored_diff_lines: ignored)['run_all']).to be(false)
         expect(select(nil, diff_base: 'membership', ignored_diff_lines: ignored)['run_all']).to be(true)
+        expect(select(nil, diff_base: 'project', diff_head: 'membership', ignored_diff_lines: ignored.transform_keys(&:to_sym))['run_all']).to be(false)
+      end
+
+      it 'runs all tests for a run_all file whose diff has no changed lines' do
+        Dir.chdir(root) do
+          FileUtils.mkdir_p('App.xcodeproj')
+          File.write('App.xcodeproj/project.pbxproj', "files = (\n);\n")
+          system('git add -A && git commit -qm project && git tag project')
+          File.chmod(0o755, 'App.xcodeproj/project.pbxproj')
+          system('git add -A && git commit -qm mode')
+        end
+        ignored = { '**/*.pbxproj' => ['^\\s*[^=]+\\.\\w+,$'] }
+
+        expect(select(nil, diff_base: 'project', ignored_diff_lines: ignored)['run_all']).to be(true)
+      end
+
+      it 'does not mistake removed lines starting with -- for diff headers' do
+        Dir.chdir(root) do
+          FileUtils.mkdir_p('Scripts')
+          File.write('Scripts/a.lua', "-- comment\n")
+          system('git add -A && git commit -qm lua && git tag lua')
+          File.write('Scripts/a.lua', "x = 1\n")
+          system('git add -A && git commit -qm edit')
+        end
+        ignored = { 'Scripts/a.lua' => ['^x = \\d+$'] }
+
+        expect(select(nil, diff_base: 'lua', run_all_paths: ['Scripts'], ignored_diff_lines: ignored)['run_all']).to be(true)
       end
 
       it 'ignores target membership edits in project.pbxproj by default' do
@@ -176,6 +250,37 @@ describe Fastlane do
 
         expect(select(nil, diff_base: 'project', diff_head: 'membership')['run_all']).to be(false)
         expect(select(nil, diff_base: 'membership')['run_all']).to be(true)
+      end
+
+      it 'looks for the users of a declaration-only file at diff_head' do
+        Dir.chdir(root) do
+          File.write('Sources/ReactionPayload.swift', "struct ReactionPayload {}\n")
+          File.write('Sources/Reaction.swift', "let payload = ReactionPayload()\n")
+          system('git add -A && git commit -qm payload && git tag payload')
+          File.write('Sources/ReactionPayload.swift', "struct ReactionPayload { let type: String }\n")
+          system('git add -A && git commit -qm field && git tag field')
+          File.write('Sources/Reaction.swift', 'let a = 3')
+        end
+
+        selection = select(nil, diff_base: 'payload', diff_head: 'field')
+
+        expect(selection['run_all']).to be(false)
+        expect(selection['tests']).to eq(['UITests/Reactions_Tests/test_add', 'UITests/New_Tests/test_new'])
+      end
+
+      it 'selects the users of the existing types an added file extends' do
+        Dir.chdir(root) do
+          File.write('Sources/Reaction.swift', "struct Reaction {}\n")
+          system('git add -A && git commit -qm reaction && git tag reaction')
+          File.write('Sources/Reaction+Haptics.swift', "extension Reaction {\n  func buzz() {}\n}\n")
+          File.write('Sources/Haptics.swift', "struct Haptics {}\nextension Haptics: Equatable {}\n")
+          system('git add -A && git commit -qm haptics')
+        end
+
+        selection = select(nil, diff_base: 'reaction')
+
+        expect(selection['run_all']).to be(false)
+        expect(selection['tests']).to eq(['UITests/Reactions_Tests/test_add', 'UITests/New_Tests/test_new'])
       end
 
       it 'treats newly added code files as covered by the files that use them' do
