@@ -39,8 +39,8 @@ module Fastlane
           diff = is_kb ? diff_b : diff_kb
           diff_ext = is_kb ? 'B' : 'KB'
 
-          max_tolerance = params[:max_tolerance] || diff_ext == 'B' ? 5000 : 500 # By default, Max Tolerance is 5000 Bytes or 500 Kilobytes
-          fine_tolerance = params[:fine_tolerance] || diff_ext == 'B' ? 2500 : 250 # By default, Fine Tolerance is 2500 Bytes or 250 Kilobytes
+          max_tolerance = params[:max_tolerance] || (diff_ext == 'B' ? 5000 : 500) # By default, Max Tolerance is 5000 Bytes or 500 Kilobytes
+          fine_tolerance = params[:fine_tolerance] || (diff_ext == 'B' ? 2500 : 250) # By default, Fine Tolerance is 2500 Bytes or 250 Kilobytes
 
           diff_sign = if diff.zero?
                         ''

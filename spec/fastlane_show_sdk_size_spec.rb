@@ -13,9 +13,9 @@ describe Fastlane do
         allow(Fastlane::Actions::PrCommentAction).to receive(:run)
       end
 
-      def posted_table(branch_sizes)
+      def posted_table(branch_sizes, options = '')
         described_class.new.parse("lane :test do
-          show_sdk_size(github_repo: 'GetStream/sdk', branch_sizes: #{branch_sizes}, size_ext: 'KB')
+          show_sdk_size(github_repo: 'GetStream/sdk', branch_sizes: #{branch_sizes}, size_ext: 'KB'#{options})
         end").runner.execute(:test)
 
         table = nil
@@ -34,6 +34,12 @@ describe Fastlane do
 
         expect(table).to include('|js_bundle_size|2000 KB|2000 KB|0 B|🟢|')
         expect(table).to include('|ai_size|n/a|130 KB|n/a|🆕|')
+      end
+
+      it 'applies the tolerances passed by the caller' do
+        table = posted_table({ js_bundle_size: 2001.0 }, ', max_tolerance: 500, fine_tolerance: 100')
+
+        expect(table).to include('|js_bundle_size|2000 KB|2001 KB|+1024 B|🔴|')
       end
     end
   end
