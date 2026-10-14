@@ -5,6 +5,7 @@ describe Fastlane do
 
       before do
         allow(Fastlane::Actions).to receive(:sh)
+        allow(FileUtils).to receive(:remove_dir)
         allow(File).to receive(:read).and_call_original
         allow(File).to receive(:read).with('metrics/sdk-size.json').and_return(JSON.generate(benchmark))
         allow(Fastlane::Actions::CurrentBranchAction).to receive(:run).and_return('feature')
