@@ -6,6 +6,7 @@ module Fastlane
         fail_status = '🔴' # Failure if a branch is more than #{max_tolerance} less performant than the benchmark
         success_status = '🟢' # Success if a branch is more performant or equals to the benchmark
         outstanding_status = '🚀' # Outstanding performance
+        new_status = '🆕' # No benchmark yet, e.g. a newly tracked size
 
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
@@ -23,7 +24,13 @@ module Fastlane
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
           branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
-          benchmark_value_kb = benchmark_sizes[sdk_name.to_s] || 0
+          benchmark_value_kb = benchmark_sizes[sdk_name.to_s]
+          # A size the benchmark doesn't track yet has nothing to compare against. Only a push to the base
+          # branch or a release branch run rewrites the benchmark (see below), so PRs show it as new until then.
+          if benchmark_value_kb.nil?
+            markdown_table << "|#{sdk_name}|n/a|#{branch_value} #{params[:size_ext]}|n/a|#{new_status}|\n"
+            next
+          end
           benchmark_value_mb = (benchmark_value_kb / 1024.0).round(2)
           benchmark_value = is_kb ? benchmark_value_kb.round(0) : benchmark_value_mb
 
@@ -32,8 +39,8 @@ module Fastlane
           diff = is_kb ? diff_b : diff_kb
           diff_ext = is_kb ? 'B' : 'KB'
 
-          max_tolerance = params[:max_tolerance] || diff_ext == 'B' ? 5000 : 500 # By default, Max Tolerance is 5000 Bytes or 500 Kilobytes
-          fine_tolerance = params[:fine_tolerance] || diff_ext == 'B' ? 2500 : 250 # By default, Fine Tolerance is 2500 Bytes or 250 Kilobytes
+          max_tolerance = params[:max_tolerance] || (diff_ext == 'B' ? 5000 : 500) # By default, Max Tolerance is 5000 Bytes or 500 Kilobytes
+          fine_tolerance = params[:fine_tolerance] || (diff_ext == 'B' ? 2500 : 250) # By default, Fine Tolerance is 2500 Bytes or 250 Kilobytes
 
           diff_sign = if diff.zero?
                         ''
