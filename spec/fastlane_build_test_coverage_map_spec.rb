@@ -40,6 +40,69 @@ describe Fastlane do
       expect(tests).to be_empty
     end
 
+    describe 'JaCoCo coverage' do
+      let(:helper) { Fastlane::Helper::TestCoverageMapHelper }
+      let(:coverage_dir) { File.join(root, 'coverage') }
+      let(:class_dir) { File.join(root, 'classes') }
+
+      before do
+        FileUtils.mkdir_p([coverage_dir, class_dir, File.join(root, 'sdk/src/main/java/io/sdk')])
+        File.write(File.join(root, 'sdk/src/main/java/io/sdk/Client.kt'), "package io.sdk\n\nclass Client\n")
+        File.write(File.join(root, 'sdk/src/main/java/io/sdk/Models.kt'), "// Moved out of io/sdk/models\npackage io.sdk.models\n\ndata class Message(val id: String)\n")
+        File.write(File.join(root, 'sdk/src/main/java/io/sdk/Ui.kt'), "package io.sdk\n\nfun render() = Unit\n")
+        File.write(File.join(coverage_dir, 'io.app.tests.MessagesTests#test_send.ec'), '')
+        File.write(File.join(coverage_dir, 'io.app.tests.MessagesTests#test_edit.ec'), '')
+        File.write(File.join(coverage_dir, 'merged.ec'), '')
+
+        allow(helper).to receive(:command).and_call_original
+        allow(helper).to receive(:command).with('git', '-C', root, 'ls-files', '*.kt', '*.java')
+                                          .and_return("sdk/src/main/java/io/sdk/Client.kt\nsdk/src/main/java/io/sdk/Models.kt\nsdk/src/main/java/io/sdk/Ui.kt\n")
+        allow(helper).to receive(:command).with('java', '-jar', 'cli.jar', 'report', '--classfiles', class_dir, '--xml', anything, '--quiet') do |*args|
+          File.write(args[-2], '<report><package name="io/sdk"><class name="io/sdk/Client" sourcefilename="Client.kt"><method/></class>' \
+                               '<class name="io/sdk/Client$Companion" sourcefilename="Client.kt"><method/></class>' \
+                               '<class name="io/sdk/UiKt" sourcefilename="Ui.kt"><method/></class>' \
+                               '<class name="io/sdk/Generated" sourcefilename="Generated.kt"><method/></class>' \
+                               '<class name="io/sdk/Listener" sourcefilename="Client.kt"/></package>' \
+                               '<package name="io/sdk/models"><class name="io/sdk/models/Message" sourcefilename="Models.kt"><method/></class></package></report>')
+          ''
+        end
+        allow(helper).to receive(:command).with('java', '-jar', 'cli.jar', 'execinfo', *Dir.glob(File.join(coverage_dir, '**', '*.ec'))) do |*args|
+          args.drop(4).map do |file|
+            classes =
+              case File.basename(file)
+              when /test_send/ then ['1db3754e97473fbe   12 of  47   io/sdk/Client$Companion', '7b2dc122b6180c11    3 of  27   io/sdk/models/Message']
+              when /test_edit/ then ['1db3754e97473fbe    0 of  47   io/sdk/Client', 'a6c1f0095dd1912a  139 of 165   io/sdk/UiKt']
+              else []
+              end
+            ["[INFO] Loading exec file #{file}.", 'CLASS ID         HITS/PROBES   CLASS NAME', 'Session "host": Tue Oct 20 - Tue Oct 20', *classes].join("\n")
+          end.join("\n")
+        end
+      end
+
+      def build
+        action.run(FastlaneCore::Configuration.create(action.available_options, {
+          coverage_dir: coverage_dir, class_dirs: [class_dir, File.join(root, 'missing')], jacoco_cli: 'cli.jar',
+          source_root: root, output_path: File.join(root, 'map.json'), commit: 'abc'
+        }))
+      end
+
+      it 'maps every test to the tracked source files of the classes it executed' do
+        map = build
+
+        expect(map['tests']).to eq(
+          'MessagesTests/test_edit' => ['sdk/src/main/java/io/sdk/Ui.kt'],
+          'MessagesTests/test_send' => ['sdk/src/main/java/io/sdk/Client.kt', 'sdk/src/main/java/io/sdk/Models.kt']
+        )
+        expect(map['sources']).to eq(['sdk/src/main/java/io/sdk/Client.kt', 'sdk/src/main/java/io/sdk/Models.kt', 'sdk/src/main/java/io/sdk/Ui.kt'])
+      end
+
+      it 'writes a map select_impacted_tests reads' do
+        build
+
+        expect(helper.read_map(File.join(root, 'map.json'))['tests']['MessagesTests/test_edit']).to eq(['sdk/src/main/java/io/sdk/Ui.kt'])
+      end
+    end
+
     it 'drops a failed test the previous map does not have' do
       File.write(previous_map, JSON.generate('version' => 1, 'generated_at' => Time.now.utc.iso8601, 'sources' => [], 'tests' => {}))
 

@@ -2,15 +2,36 @@ require 'json'
 require 'open3'
 require 'set'
 require 'time'
+require 'tmpdir'
 
 module Fastlane
   module Actions
     class BuildTestCoverageMapAction < Action
       def self.run(params)
         source_root = File.expand_path(params[:source_root] || Dir.pwd)
+        sources, tests = params[:class_dirs] ? jacoco_coverage(params, source_root) : llvm_coverage(params, source_root)
+
+        carry_over_failed_tests(tests, sources, params) unless params[:failed_tests].to_a.empty?
+        drop_untracked(tests, sources, source_root)
+
+        map = {
+          'version' => Helper::TestCoverageMapHelper::MAP_VERSION,
+          'generated_at' => Time.now.utc.iso8601,
+          'commit' => params[:commit],
+          'sources' => sources.sort,
+          'tests' => tests.sort.to_h
+        }
+        write(map, params[:output_path])
+        UI.success("Coverage map of #{tests.size} tests and #{map['sources'].size} sources saved to #{params[:output_path]}")
+        map
+      end
+
+      # iOS: one folder of .profraw files per test, `<coverage_dir>/<TestClass>/<testMethod>/`.
+      def self.llvm_coverage(params, source_root)
         test_dirs = Dir.glob(File.join(params[:coverage_dir], '*', '*')).select { |dir| File.directory?(dir) }
         UI.user_error!("No per-test coverage found in '#{params[:coverage_dir]}'") if test_dirs.empty?
 
+        UI.user_error!('Pass the instrumented binaries or the class_dirs') if params[:binaries].to_a.empty?
         binaries = params[:binaries].select { |binary| File.exist?(binary) }
         UI.user_error!('None of the instrumented binaries exist') if binaries.empty?
 
@@ -41,20 +62,81 @@ module Fastlane
           end
         end
         workers.each(&:join)
+        [sources, tests]
+      end
 
-        carry_over_failed_tests(tests, sources, params) unless params[:failed_tests].to_a.empty?
-        drop_untracked(tests, sources, source_root)
+      # Android: one JaCoCo `.ec` file per test, named `<package>.<TestClass>#<testMethod>.ec` by the test orchestrator.
+      def self.jacoco_coverage(params, source_root)
+        exec_files = Dir.glob(File.join(params[:coverage_dir], '**', '*.ec'))
+        UI.user_error!("No per-test coverage found in '#{params[:coverage_dir]}'") if exec_files.empty?
 
-        map = {
-          'version' => Helper::TestCoverageMapHelper::MAP_VERSION,
-          'generated_at' => Time.now.utc.iso8601,
-          'commit' => params[:commit],
-          'sources' => sources.sort,
-          'tests' => tests.sort.to_h
-        }
-        write(map, params[:output_path])
-        UI.success("Coverage map of #{tests.size} tests and #{map['sources'].size} sources saved to #{params[:output_path]}")
-        map
+        class_dirs = params[:class_dirs].select { |dir| File.directory?(dir) }
+        UI.user_error!('None of the class_dirs exist') if class_dirs.empty?
+
+        UI.message("Building the coverage map of #{exec_files.size} tests ⌛️")
+        cli = params[:jacoco_cli] || download_jacoco_cli
+        paths = kotlin_and_java_paths(source_root)
+        source_of_class = jacoco_class_sources(cli, class_dirs).transform_values { |key| paths[key] }.compact
+
+        tests = {}
+        jacoco_executed_classes(cli, exec_files).each do |file, classes|
+          test_class, method = File.basename(file, '.ec').split('#', 2)
+          next UI.important("#{File.basename(file)} is not named <TestClass>#<testMethod>.ec, skipping") if method.nil?
+
+          tests["#{test_class.split('.').last}/#{method}"] = classes.flat_map { |name| source_of_class[name].to_a }.uniq
+        end
+        [source_of_class.values.flatten.uniq, tests]
+      end
+
+      # Class name => `<package path>/<source file name>`, from an XML report of the class files without execution data.
+      # Classes without code (interfaces, annotations, constants) are empty `<class/>` elements and stay out, like
+      # declaration-only files in llvm-cov. One report per folder, as JaCoCo fails on a class name that two folders
+      # define differently (e.g. a stale build).
+      def self.jacoco_class_sources(cli, class_dirs)
+        Dir.mktmpdir('jacoco') do |dir|
+          xml = File.join(dir, 'classes.xml')
+          class_dirs.each_with_object({}) do |class_dir, sources|
+            Helper::TestCoverageMapHelper.command('java', '-jar', cli, 'report', '--classfiles', class_dir, '--xml', xml, '--quiet')
+            File.read(xml).scan(/<class name="([^"]+)" sourcefilename="([^"]+)">/).each do |name, source|
+              sources[name] ||= "#{File.dirname(name)}/#{source}"
+            end
+          end
+        end
+      end
+
+      # Exec file => names of the classes with at least one executed probe.
+      def self.jacoco_executed_classes(cli, exec_files)
+        exec_files.each_slice(100).with_object({}) do |slice, result|
+          current = nil
+          Helper::TestCoverageMapHelper.command('java', '-jar', cli, 'execinfo', *slice).each_line do |line|
+            if (loaded = line[/\[INFO\] Loading exec file (.+)\.$/, 1])
+              current = result[loaded] = []
+            elsif current && (hit = line.match(/^\h+\s+(\d+) of\s+\d+\s+(\S+)$/)) && hit[1].to_i.positive?
+              current << hit[2]
+            end
+          end
+        end
+      end
+
+      # `<package path>/<file name>` => repository paths of the tracked Kotlin and Java files. The package comes from the
+      # file, as a Kotlin file does not have to sit in the folder of its package.
+      def self.kotlin_and_java_paths(source_root)
+        files = Helper::TestCoverageMapHelper.command('git', '-C', source_root, 'ls-files', '*.kt', '*.java').split("\n")
+        files.each_with_object({}) do |file, paths|
+          package = File.foreach(File.join(source_root, file)).lazy.map { |line| line[/^\s*package\s+([\w.]+)/, 1] }.find(&:itself)
+          (paths["#{package.to_s.tr('.', '/')}/#{File.basename(file)}".delete_prefix('/')] ||= []) << file
+        end
+      end
+
+      def self.download_jacoco_cli
+        version = '0.8.13'
+        path = File.join(Dir.tmpdir, "jacococli-#{version}.jar")
+        return path if File.exist?(path)
+
+        url = "https://repo1.maven.org/maven2/org/jacoco/org.jacoco.cli/#{version}/org.jacoco.cli-#{version}-nodeps.jar"
+        Helper::TestCoverageMapHelper.command('curl', '-sSfL', '-o', "#{path}.part", url)
+        File.rename("#{path}.part", path)
+        path
       end
 
       # Returns the instrumented files (`all`) and the files with at least one executed line (`covered`).
@@ -152,15 +234,21 @@ module Fastlane
       #####################################################
 
       def self.description
-        'Builds a map of which source files every test executes, from per-test LLVM coverage profiles'
+        'Builds a map of which source files every test executes, from per-test LLVM or JaCoCo coverage'
       end
 
       def self.details
         <<~DETAILS
-          Expects one folder per test, `<coverage_dir>/<TestClass>/<testMethod>/`, holding the `.profraw` files
+          iOS: expects one folder per test, `<coverage_dir>/<TestClass>/<testMethod>/`, holding the `.profraw` files
           the app wrote while that test ran (e.g. via `LLVM_PROFILE_FILE=<dir>/<TestClass>/<testMethod>/%m_%p%c.profraw`
           in the app's launch environment). Each folder is merged with `llvm-profdata` and exported with `llvm-cov`
-          against the instrumented `binaries`. The resulting JSON map feeds `select_impacted_tests`.
+          against the instrumented `binaries`.
+
+          Android: pass `class_dirs` instead of `binaries`, and a `coverage_dir` holding one JaCoCo `.ec` file per test,
+          `<package>.<TestClass>#<testMethod>.ec`, which the test orchestrator writes with `-e coverage true
+          -e coverageFilePath <dir>/`. A source file counts as executed when one of its classes ran a probe.
+
+          The resulting JSON map feeds `select_impacted_tests`.
         DETAILS
       end
 
@@ -178,7 +266,19 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :binaries,
             description: 'Instrumented binaries the profiles belong to, e.g. the app executable (or its .debug.dylib) and every SDK framework',
-            type: Array
+            type: Array,
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :class_dirs,
+            description: 'Android: folders with the compiled classes of the app and its modules. Switches to JaCoCo coverage',
+            type: Array,
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :jacoco_cli,
+            description: 'Android: path to the JaCoCo CLI jar (org.jacoco.cli nodeps). Downloaded when not set',
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :source_root,
@@ -240,6 +340,11 @@ module Fastlane
             coverage_dir: "test_output/coverage",
             binaries: ["App.app/App.debug.dylib", "App.app/Frameworks/SDK.framework/SDK"],
             output_path: "test_output/e2e_coverage_map.json"
+          )',
+          'build_test_coverage_map(
+            coverage_dir: "coverage",
+            class_dirs: Dir.glob("*/build/intermediates/classes/debug/**/dirs"),
+            output_path: "e2e_coverage_map.json"
           )'
         ]
       end
@@ -249,7 +354,7 @@ module Fastlane
       end
 
       def self.is_supported?(platform)
-        [:ios, :mac].include?(platform)
+        [:ios, :mac, :android].include?(platform)
       end
     end
   end

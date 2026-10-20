@@ -6,7 +6,8 @@ module Fastlane
   module Actions
     class SelectImpactedTestsAction < Action
       CODE_EXTENSIONS = %w[.swift .m .mm .h .kt .java .dart .js .jsx .ts .tsx].freeze
-      MODIFIERS = '(?:(?:public|open|internal|fileprivate|private|final|indirect|nonisolated|data|sealed|abstract|export|default)\\s+)*'
+      # Kotlin's `enum class` and `fun interface` name the type after the second keyword.
+      MODIFIERS = '(?:(?:public|open|internal|fileprivate|private|protected|final|indirect|nonisolated|data|sealed|abstract|annotation|value|inline|inner|enum(?=\\s+class\\b)|fun(?=\\s+interface\\b)|export|default)\\s+)*'
       DECLARATION = /^\s*(?:@\w+(?:\([^)\n]*\))?\s+)*#{MODIFIERS}(class|struct|enum|protocol|actor|typealias|extension|interface|object)\s+([A-Za-z_]\w*)/.freeze
 
       def self.run(params)
