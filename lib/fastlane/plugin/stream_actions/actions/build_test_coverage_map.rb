@@ -9,7 +9,14 @@ module Fastlane
     class BuildTestCoverageMapAction < Action
       def self.run(params)
         source_root = File.expand_path(params[:source_root] || Dir.pwd)
-        sources, tests = params[:class_dirs] ? jacoco_coverage(params, source_root) : llvm_coverage(params, source_root)
+        sources, tests =
+          if params[:class_dirs]
+            jacoco_coverage(params, source_root)
+          elsif params[:binaries]
+            llvm_coverage(params, source_root)
+          else
+            lcov_coverage(params, source_root)
+          end
 
         carry_over_failed_tests(tests, sources, params) unless params[:failed_tests].to_a.empty?
         drop_untracked(tests, sources, source_root)
@@ -31,7 +38,6 @@ module Fastlane
         test_dirs = Dir.glob(File.join(params[:coverage_dir], '*', '*')).select { |dir| File.directory?(dir) }
         UI.user_error!("No per-test coverage found in '#{params[:coverage_dir]}'") if test_dirs.empty?
 
-        UI.user_error!('Pass the instrumented binaries or the class_dirs') if params[:binaries].to_a.empty?
         binaries = params[:binaries].select { |binary| File.exist?(binary) }
         UI.user_error!('None of the instrumented binaries exist') if binaries.empty?
 
@@ -86,6 +92,24 @@ module Fastlane
           tests["#{test_class.split('.').last}/#{method}"] = classes.flat_map { |name| source_of_class[name].to_a }.uniq
         end
         [source_of_class.values.flatten.uniq, tests]
+      end
+
+      # Flutter: one folder of lcov files per test, `<coverage_dir>/<TestFile>/<test description>/`, e.g. from
+      # `flutter test --coverage --coverage-path <dir>/lcov.info --name <test>`. lcov lists every library the app loaded,
+      # so a file counts as executed when one of its lines has hits.
+      def self.lcov_coverage(params, source_root)
+        reports = Helper::TestCoverageMapHelper.lcov_reports(params[:coverage_dir])
+        UI.user_error!("No per-test coverage found in '#{params[:coverage_dir]}'") if reports.empty?
+
+        UI.message("Building the coverage map of #{reports.size} tests ⌛️")
+        base_dir = File.expand_path(params[:lcov_base_dir] || source_root)
+        sources = []
+        tests = reports.transform_values do |files|
+          files = files.map { |file, executed| [relative_path(File.expand_path(file, base_dir), source_root), executed] }.reject { |file, _| file.nil? }
+          sources |= files.map(&:first)
+          files.select(&:last).map(&:first).uniq
+        end
+        [sources, tests]
       end
 
       # Class name => `<package path>/<source file name>`, from an XML report of the class files without execution data.
@@ -234,7 +258,7 @@ module Fastlane
       #####################################################
 
       def self.description
-        'Builds a map of which source files every test executes, from per-test LLVM or JaCoCo coverage'
+        'Builds a map of which source files every test executes, from per-test LLVM, JaCoCo or lcov coverage'
       end
 
       def self.details
@@ -248,6 +272,9 @@ module Fastlane
           `<package>.<TestClass>#<testMethod>.ec`, which the test orchestrator writes with `-e coverage true
           -e coverageFilePath <dir>/`. A source file counts as executed when one of its classes ran a probe.
 
+          Flutter: pass neither, and a `coverage_dir` with one folder of lcov `.info` files per test, `<TestFile>/<test>/`,
+          e.g. from `flutter test --coverage --name <test>`. A source file counts as executed when one of its lines has hits.
+
           The resulting JSON map feeds `select_impacted_tests`.
         DETAILS
       end
@@ -260,7 +287,8 @@ module Fastlane
         [
           FastlaneCore::ConfigItem.new(
             key: :coverage_dir,
-            description: 'Folder with per-test profiles, laid out as <TestClass>/<testMethod>/*.profraw',
+            description: 'Folder with per-test coverage: <TestClass>/<testMethod>/*.profraw (iOS), *.ec files (Android) ' \
+                         'or <TestFile>/<test>/*.info (Flutter)',
             verify_block: proc { |path| UI.user_error!("Coverage folder '#{path}' does not exist") unless File.directory?(path) }
           ),
           FastlaneCore::ConfigItem.new(
@@ -278,6 +306,11 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :jacoco_cli,
             description: 'Android: path to the JaCoCo CLI jar (org.jacoco.cli nodeps). Downloaded when not set',
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :lcov_base_dir,
+            description: 'Flutter: folder that relative lcov SF paths start from (the package that ran the tests), source_root by default',
             optional: true
           ),
           FastlaneCore::ConfigItem.new(

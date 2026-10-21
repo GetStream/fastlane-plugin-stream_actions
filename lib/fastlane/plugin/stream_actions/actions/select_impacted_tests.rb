@@ -6,9 +6,10 @@ module Fastlane
   module Actions
     class SelectImpactedTestsAction < Action
       CODE_EXTENSIONS = %w[.swift .m .mm .h .kt .java .dart .js .jsx .ts .tsx].freeze
-      # Kotlin's `enum class` and `fun interface` name the type after the second keyword.
-      MODIFIERS = '(?:(?:public|open|internal|fileprivate|private|protected|final|indirect|nonisolated|data|sealed|abstract|annotation|value|inline|inner|enum(?=\\s+class\\b)|fun(?=\\s+interface\\b)|export|default)\\s+)*'
-      DECLARATION = /^\s*(?:@\w+(?:\([^)\n]*\))?\s+)*#{MODIFIERS}(class|struct|enum|protocol|actor|typealias|extension|interface|object)\s+([A-Za-z_]\w*)/.freeze
+      # Kotlin's `enum class` and `fun interface`, and Dart's `interface class` and `mixin class`, name the type after the second keyword.
+      MODIFIERS = '(?:(?:public|open|internal|fileprivate|private|protected|final|indirect|nonisolated|data|sealed|abstract|base|annotation|value|inline|inner|enum(?=\\s+class\\b)|fun(?=\\s+interface\\b)|interface(?=\\s+class\\b)|mixin(?=\\s+class\\b)|export|default)\\s+)*'
+      # Dart's `extension type` declares a new type, unlike an `extension`.
+      DECLARATION = /^\s*(?:@\w+(?:\([^)\n]*\))?\s+)*#{MODIFIERS}(class|struct|enum|protocol|actor|typealias|typedef|mixin|extension\s+type(?:\s+const)?|extension|interface|object)\s+([A-Za-z_]\w*)/.freeze
 
       def self.run(params)
         source_root = File.expand_path(params[:source_root] || Dir.pwd)

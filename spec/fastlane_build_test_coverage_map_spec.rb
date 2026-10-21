@@ -103,6 +103,54 @@ describe Fastlane do
       end
     end
 
+    describe 'lcov coverage' do
+      let(:helper) { Fastlane::Helper::TestCoverageMapHelper }
+      let(:coverage_dir) { File.join(root, 'build/e2e-coverage') }
+
+      before do
+        send_dir = File.join(coverage_dir, 'messages_test', 'user sends a message')
+        react_dir = File.join(coverage_dir, 'reactions_test', 'user adds a reaction')
+        FileUtils.mkdir_p([send_dir, react_dir, File.join(coverage_dir, 'reactions_test', 'skipped')])
+        File.write(File.join(send_dir, 'lcov.info'), <<~LCOV)
+          SF:lib/app.dart
+          DA:3,1
+          end_of_record
+          SF:../packages/sdk/lib/client.dart
+          DA:10,0
+          DA:11,4
+          end_of_record
+          SF:../packages/sdk/lib/reaction.dart
+          DA:7,0
+          end_of_record
+          SF:/elsewhere/pub-cache/http.dart
+          DA:1,9
+          end_of_record
+        LCOV
+        File.write(File.join(react_dir, 'lcov.info'), "SF:lib/app.dart\nDA:3,2\nend_of_record\nSF:../packages/sdk/lib/reaction.dart\nDA:7,1\nend_of_record\n")
+
+        allow(helper).to receive(:command).and_call_original
+        allow(helper).to receive(:command).with('git', '-C', root, 'ls-files')
+                                          .and_return("sample_app/lib/app.dart\npackages/sdk/lib/client.dart\npackages/sdk/lib/reaction.dart\n")
+      end
+
+      def build
+        action.run(FastlaneCore::Configuration.create(action.available_options, {
+          coverage_dir: coverage_dir, lcov_base_dir: File.join(root, 'sample_app'),
+          source_root: root, output_path: File.join(root, 'map.json'), commit: 'abc'
+        }))
+      end
+
+      it 'maps every test to the repository files with executed lines' do
+        map = build
+
+        expect(map['tests']).to eq(
+          'messages_test/user sends a message' => ['sample_app/lib/app.dart', 'packages/sdk/lib/client.dart'],
+          'reactions_test/user adds a reaction' => ['sample_app/lib/app.dart', 'packages/sdk/lib/reaction.dart']
+        )
+        expect(map['sources']).to eq(['packages/sdk/lib/client.dart', 'packages/sdk/lib/reaction.dart', 'sample_app/lib/app.dart'])
+      end
+    end
+
     it 'drops a failed test the previous map does not have' do
       File.write(previous_map, JSON.generate('version' => 1, 'generated_at' => Time.now.utc.iso8601, 'sources' => [], 'tests' => {}))
 
