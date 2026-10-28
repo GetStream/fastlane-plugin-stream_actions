@@ -7,7 +7,7 @@ module Fastlane
         version_acceptable_for_plist = other_action.core_version(version: params[:version])
 
         version_number = ''
-        params[:sdk_names].each do |target|
+        params[:sdk_names]&.each do |target|
           # Assigning is required because the version could have been passed via :bump_type
           version_number = other_action.increment_version_number_in_plist(
             target: target,
@@ -65,6 +65,10 @@ module Fastlane
         if params[:version].nil? && !["patch", "minor", "major"].include?(params[:bump_type])
           UI.user_error!("Please use type parameter with one of the options: type:patch, type:minor, type:major")
         end
+
+        if params[:sdk_names].nil? && params[:version].nil?
+          UI.user_error!("Please use version parameter when sdk_names are not set, the release type needs Info.plist files to bump")
+        end
       end
 
       def self.ensure_release_tag_is_new(version_number)
@@ -103,8 +107,9 @@ module Fastlane
           ),
           FastlaneCore::ConfigItem.new(
             key: :sdk_names,
-            description: 'SDK names to release',
+            description: 'SDK names whose Info.plist versions are bumped (not required for Swift packages without Info.plist files)',
             is_string: false,
+            optional: true,
             verify_block: proc do |sdks|
               UI.user_error!("SDK names array has to be specified") unless sdks.kind_of?(Array) && sdks.size.positive?
             end
