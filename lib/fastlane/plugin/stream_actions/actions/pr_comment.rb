@@ -1,3 +1,5 @@
+require 'tempfile'
+
 module Fastlane
   module Actions
     class PrCommentAction < Action
@@ -8,16 +10,50 @@ module Fastlane
           if params[:edit_last_comment_with_text]
             text = params[:edit_last_comment_with_text]
             UI.message("Checking last comment for required pattern: '#{text}'")
-            comments = sh("gh api repos/#{params[:github_repo]}/issues/#{params[:pr_num]}/comments --jq " \
-                          "'[.[] | select(.body | test(\"#{text}\"; \"i\")) | {id, user: .user.login, html_url}]'")
+            comments = sh('gh', 'api', "repos/#{params[:github_repo]}/issues/#{params[:pr_num]}/comments", log: false)
 
-            JSON.parse(comments).each do |comment|
+            JSON.parse(comments).select { |comment| comment['body'].downcase.include?(text.downcase) }.each do |comment|
               sh("gh api --method DELETE repos/#{params[:github_repo]}/issues/comments/#{comment['id']}")
             end
           end
-          sh("gh pr comment #{params[:pr_num]} -b '#{params[:text]}'")
+          Tempfile.create('pr_comment') do |file|
+            file.write(comment_body(params))
+            file.close
+            sh('gh', 'pr', 'comment', params[:pr_num].to_s, '--body-file', file.path)
+          end
           UI.success('PR comment has been added.')
         end
+      end
+
+      def self.comment_body(params)
+        text = params[:text]
+        return text if text.length <= 65_536
+
+        UI.important("PR comment has #{text.length} characters, more than GitHub allows (65536). Full text:")
+        UI.message(text)
+        # Leave room for the closing fence and the footer
+        body = text[0, 60_000]
+        # Cut at a line break so a fence marker is never split
+        body = body[0, body.rindex("\n")] if body.include?("\n")
+        fence = open_fence(body)
+        body += "\n#{fence}" if fence
+        run_url = "https://github.com/#{params[:github_repo]}/actions/runs/#{ENV['GITHUB_RUN_ID']}"
+        "#{body}\n\n⚠️ Truncated to fit GitHub's comment limit. The full text is in the [job log](#{run_url})."
+      end
+
+      def self.open_fence(body)
+        fence = nil
+        body.each_line do |line|
+          marker = line[/\A {0,3}(`{3,})/, 1]
+          next unless marker
+
+          if fence.nil?
+            fence = marker
+          elsif marker.length >= fence.length && line.strip == marker
+            fence = nil
+          end
+        end
+        fence
       end
 
       #####################################################
