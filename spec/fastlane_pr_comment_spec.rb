@@ -44,7 +44,8 @@ describe Fastlane do
       it 'deletes earlier comments containing the text to edit' do
         header = %(## It's "quoted" (x))
         commands = []
-        allow(Fastlane::Actions::PrCommentAction).to receive(:sh) do |*args, **|
+        # Same keywords as Actions.sh_control_output, which an action's `sh` delegates to
+        allow(Fastlane::Actions::PrCommentAction).to receive(:sh) do |*args, print_command: true, print_command_output: true|
           commands << args
           [{ id: 1, body: "#{header.upcase}\nold" }, { id: 2, body: 'other' }].to_json if args[1] == 'api'
         end
