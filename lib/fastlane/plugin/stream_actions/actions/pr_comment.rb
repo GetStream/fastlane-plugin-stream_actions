@@ -1,3 +1,5 @@
+require 'tempfile'
+
 module Fastlane
   module Actions
     class PrCommentAction < Action
@@ -15,9 +17,26 @@ module Fastlane
               sh("gh api --method DELETE repos/#{params[:github_repo]}/issues/comments/#{comment['id']}")
             end
           end
-          sh("gh pr comment #{params[:pr_num]} -b '#{params[:text]}'")
+          Tempfile.create('pr_comment') do |file|
+            file.write(comment_body(params))
+            file.close
+            sh('gh', 'pr', 'comment', params[:pr_num].to_s, '--body-file', file.path)
+          end
           UI.success('PR comment has been added.')
         end
+      end
+
+      def self.comment_body(params)
+        text = params[:text]
+        return text if text.length <= 65_536
+
+        UI.important("PR comment has #{text.length} characters, more than GitHub allows (65536). Full text:")
+        UI.message(text)
+        # Leave room for the closing fence and the footer
+        body = text[0, 60_000]
+        body += "\n```" if body.scan('```').size.odd?
+        run_url = "https://github.com/#{params[:github_repo]}/actions/runs/#{ENV['GITHUB_RUN_ID']}"
+        "#{body}\n\n⚠️ Truncated to fit GitHub's comment limit. The full text is in the [job log](#{run_url})."
       end
 
       #####################################################
