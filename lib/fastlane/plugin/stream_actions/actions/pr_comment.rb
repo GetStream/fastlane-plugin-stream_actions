@@ -10,7 +10,8 @@ module Fastlane
           if params[:edit_last_comment_with_text]
             text = params[:edit_last_comment_with_text]
             UI.message("Checking last comment for required pattern: '#{text}'")
-            comments = sh('gh', 'api', "repos/#{params[:github_repo]}/issues/#{params[:pr_num]}/comments", log: false)
+            comments = sh('gh', 'api', "repos/#{params[:github_repo]}/issues/#{params[:pr_num]}/comments",
+                          print_command: false, print_command_output: false)
 
             JSON.parse(comments).select { |comment| comment['body'].downcase.include?(text.downcase) }.each do |comment|
               sh("gh api --method DELETE repos/#{params[:github_repo]}/issues/comments/#{comment['id']}")
