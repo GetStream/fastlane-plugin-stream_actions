@@ -28,6 +28,34 @@ describe Fastlane do
         expect(body.scan('```').size).to be_even
         expect(body).to include('https://github.com/GetStream/sdk/actions/runs/')
       end
+
+      it 'truncates at a line break so a fence marker is not split' do
+        body = posted_body("#{'a' * 59_997}\n```diff\n#{"+ line\n" * 2000}```")
+
+        expect(body).to start_with("#{'a' * 59_997}\n\n⚠️ Truncated")
+      end
+
+      it 'closes an open fence with as many backticks as it was opened with' do
+        body = posted_body("````md\n#{"```swift\nx\n```\n" * 5000}````")
+
+        expect(body.split("\n\n⚠️ Truncated").first).to end_with("\n````")
+      end
+
+      it 'deletes earlier comments containing the text to edit' do
+        header = %(## It's "quoted" (x))
+        commands = []
+        allow(Fastlane::Actions::PrCommentAction).to receive(:sh) do |*args, **|
+          commands << args
+          [{ id: 1, body: "#{header.upcase}\nold" }, { id: 2, body: 'other' }].to_json if args[1] == 'api'
+        end
+
+        described_class.new.parse("lane :test do
+          pr_comment(github_repo: 'GetStream/sdk', pr_num: '1', text: 'new', edit_last_comment_with_text: #{header.inspect})
+        end").runner.execute(:test)
+
+        expect(commands).to include(['gh', 'api', 'repos/GetStream/sdk/issues/1/comments'])
+        expect(commands.flatten.grep(/DELETE/)).to eq(['gh api --method DELETE repos/GetStream/sdk/issues/comments/1'])
+      end
     end
   end
 end
