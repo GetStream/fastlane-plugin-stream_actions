@@ -1,3 +1,5 @@
+require 'base64'
+
 module Fastlane
   module Actions
     class CustomMatchAction < Action
@@ -9,15 +11,28 @@ module Fastlane
           params[:readonly] = false
         end
 
+        auth = git_authorization(params[:git_token])
         %w[development adhoc appstore].each do |type|
-          other_action.match(
+          options = {
             api_key: params[:api_key],
             type: type,
             app_identifier: params[:app_identifier],
             readonly: params[:readonly],
             force_for_new_devices: !other_action.is_ci
-          )
+          }
+          options[:git_basic_authorization] = auth if auth
+          other_action.match(**options)
         end
+      end
+
+      # Basic auth header value for cloning the certificates repo over HTTPS.
+      def self.git_authorization(token)
+        return nil if token.to_s.empty?
+
+        auth = Base64.strict_encode64("x-access-token:#{token}")
+        # match can print its git command, so hide the header in CI logs.
+        $stdout.puts("::add-mask::#{auth}") if ENV['GITHUB_ACTIONS'] == 'true'
+        auth
       end
 
       #####################################################
@@ -51,6 +66,13 @@ module Fastlane
             is_string: false,
             default_value: true,
             description: 'If `readonly: true` (by default), installs all Certs and Profiles necessary for development and ad-hoc.\nIf `readonly: false`, recreates all Profiles necessary for development and ad-hoc, updates them locally and remotely'
+          ),
+          FastlaneCore::ConfigItem.new(
+            env_name: 'MATCH_GIT_TOKEN',
+            key: :git_token,
+            description: 'GitHub token that can read the certificates repo over HTTPS. Without it, match uses your git credentials',
+            sensitive: true,
+            optional: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :register_device,
