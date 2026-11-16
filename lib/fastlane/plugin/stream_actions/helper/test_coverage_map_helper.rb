@@ -58,6 +58,26 @@ module Fastlane
         end
       end
 
+      # `TestFile/test` => [[source file, executed?], ...] of the lcov reports in `<coverage_dir>/<TestFile>/<test>/`.
+      def self.lcov_reports(coverage_dir)
+        Dir.glob(File.join(coverage_dir, '*', '*', '*.info'))
+           .group_by { |report| File.dirname(report).split('/').last(2).join('/') }
+           .transform_values { |reports| reports.flat_map { |report| lcov_files(report) } }
+      end
+
+      # [[source file, executed?], ...] of an lcov report, in the order it lists them.
+      def self.lcov_files(report)
+        files = []
+        File.foreach(report) do |line|
+          if line.start_with?('SF:')
+            files << [line[3..-1].strip, false]
+          elsif line.start_with?('DA:') && !files.empty? && line.split(',')[1].to_i.positive?
+            files.last[1] = true
+          end
+        end
+        files
+      end
+
       def self.read_map(path)
         map = JSON.parse(File.read(path))
         UI.user_error!("Unsupported coverage map version #{map['version']}") unless map['version'] == MAP_VERSION

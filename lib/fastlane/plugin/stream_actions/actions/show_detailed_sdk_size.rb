@@ -6,7 +6,7 @@ module Fastlane
         is_push_to_base_branch = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == params[:base_branch]
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
-        sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}")
+        other_action.clone_internal_metrics(path: metrics_dir)
 
         params[:sdk_names].each do |sdk|
           metrics_path = "metrics/linkmaps/#{sdk}.json"
@@ -58,7 +58,7 @@ module Fastlane
               else
                 sh('git add -A')
                 sh("git commit -m 'Update #{metrics_path}'")
-                sh('git push')
+                Helper::MetricsHelper.push
               end
             end
           end

@@ -11,7 +11,7 @@ module Fastlane
         metrics_dir = 'metrics'
         FileUtils.remove_dir(metrics_dir, force: true)
         sdk_size_path = "#{metrics_dir}/#{params[:github_repo].split('/').last}-size.json"
-        sh("git clone git@github.com:GetStream/stream-internal-metrics.git #{metrics_dir}/")
+        other_action.clone_internal_metrics(path: metrics_dir)
         is_release = other_action.current_branch.include?('release/')
         is_push_to_base_branch = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == params[:base_branch]
         benchmark_config = JSON.parse(File.read(sdk_size_path))
@@ -77,7 +77,7 @@ module Fastlane
             else
               sh('git add -A')
               sh("git commit -m 'Update #{sdk_size_path}'")
-              sh('git push')
+              Helper::MetricsHelper.push
             end
           end
         end

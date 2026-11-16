@@ -6,9 +6,7 @@ module Fastlane
 
         release_branch =
           if other_action.is_ci
-            # This API operation needs the "admin:org" scope.
-            ios_team = `gh api orgs/GetStream/teams/#{params[:github_team_name]}/members -q '.[].login'`.split("\n")
-            UI.user_error!("#{params[:author]} is not a member of the iOS Team") unless ios_team.include?(params[:author])
+            ensure_author_is_repo_admin(author: params[:author], github_repo: params[:github_repo])
 
             other_action.current_branch
           else
@@ -34,6 +32,20 @@ module Fastlane
         other_action.pr_comment(text: comment)
       end
 
+      # Admin access to the repo is what separates the iOS team from the rest of the org (which only has write).
+      # Unlike listing org team members, this endpoint works with the workflow's built-in GITHUB_TOKEN.
+      def self.ensure_author_is_repo_admin(author:, github_repo:)
+        UI.user_error!('Release author is not set') if author.to_s.empty?
+        UI.user_error!('GitHub repo is not set') if github_repo.to_s.empty?
+
+        permission = sh(
+          'gh', 'api', "repos/#{github_repo}/collaborators/#{author}/permission", '--jq', '.permission',
+          print_command_output: false,
+          error_callback: ->(_) {}
+        ).to_s.strip
+        UI.user_error!("#{author} needs admin access to #{github_repo} to merge a release (has: #{permission})") unless permission == 'admin'
+      end
+
       #####################################################
       # @!group Documentation
       #####################################################
@@ -51,9 +63,10 @@ module Fastlane
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
-            key: :github_team_name,
-            description: 'Github team name',
-            default_value: 'ios-developers'
+            env_name: 'GITHUB_REPOSITORY',
+            key: :github_repo,
+            description: 'GitHub repo name (owner/name)',
+            optional: true
           )
         ]
       end

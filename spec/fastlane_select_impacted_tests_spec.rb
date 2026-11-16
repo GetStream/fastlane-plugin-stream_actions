@@ -126,6 +126,33 @@ describe Fastlane do
       expect(selection['tests']).to eq(['UITests/Reactions_Tests/test_add', 'UITests/New_Tests/test_new'])
     end
 
+    it 'reads the names of Kotlin enum classes and fun interfaces' do
+      FileUtils.mkdir_p(File.join(root, 'Sources'))
+      File.write(File.join(root, 'Sources/Reaction.swift'), "val listener: ReactionListener = ReactionListener { ReactionType.LIKE }\n")
+      File.write(File.join(root, 'Sources/ReactionType.kt'), "public enum class ReactionType { LIKE }\n\nfun interface ReactionListener {\n  fun onReaction()\n}\n")
+
+      selection = select(['Sources/ReactionType.kt'])
+
+      expect(selection['run_all']).to be(false)
+      expect(selection['reasons'].first).to include('ReactionType, ReactionListener')
+    end
+
+    it 'reads the names of Dart class modifiers, mixins, typedefs and extension types' do
+      FileUtils.mkdir_p(File.join(root, 'Sources'))
+      File.write(File.join(root, 'Sources/Reaction.swift'), "ReactionTheme theme; OnReaction callback; ReactionId id; ReactionMixin mixin;\n")
+      File.write(File.join(root, 'Sources/reaction_types.dart'), <<~DART)
+        abstract interface class ReactionTheme {}
+        abstract mixin class ReactionMixin {}
+        typedef OnReaction = void Function(String type);
+        extension type const ReactionId(String value) {}
+      DART
+
+      selection = select(['Sources/reaction_types.dart'])
+
+      expect(selection['run_all']).to be(false)
+      expect(selection['reasons'].first).to include('ReactionTheme, ReactionMixin, OnReaction, ReactionId')
+    end
+
     it 'runs all tests for a declaration-only file that no mapped file uses' do
       FileUtils.mkdir_p(File.join(root, 'Sources'))
       File.write(File.join(root, 'Sources/Orphan.swift'), "struct OrphanPayload: Codable {}\n")

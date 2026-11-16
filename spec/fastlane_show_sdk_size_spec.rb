@@ -6,6 +6,7 @@ describe Fastlane do
       before do
         allow(Fastlane::Actions).to receive(:sh)
         allow(FileUtils).to receive(:remove_dir)
+        allow(Fastlane::Actions::CloneInternalMetricsAction).to receive(:run)
         allow(File).to receive(:read).and_call_original
         allow(File).to receive(:read).with('metrics/sdk-size.json').and_return(JSON.generate(benchmark))
         allow(Fastlane::Actions::CurrentBranchAction).to receive(:run).and_return('feature')
@@ -40,6 +41,20 @@ describe Fastlane do
         table = posted_table({ js_bundle_size: 2001.0 }, ', max_tolerance: 500, fine_tolerance: 100')
 
         expect(table).to include('|js_bundle_size|2000 KB|2001 KB|+1024 B|🔴|')
+      end
+
+      it 'stores the benchmark through the metrics helper on a push to the base branch' do
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('GITHUB_EVENT_NAME').and_return('push')
+        allow(Fastlane::Actions::CurrentBranchAction).to receive(:run).and_return('develop')
+        allow(File).to receive(:write)
+        allow(Dir).to receive(:chdir).and_yield
+        allow(Fastlane::Actions::ShowSdkSizeAction).to receive(:sh) { |command, *| command == 'git status -s' ? ' M sdk-size.json' : '' }
+        allow(Fastlane::Helper::MetricsHelper).to receive(:push)
+
+        posted_table({ js_bundle_size: 2001.0 })
+
+        expect(Fastlane::Helper::MetricsHelper).to have_received(:push)
       end
     end
   end

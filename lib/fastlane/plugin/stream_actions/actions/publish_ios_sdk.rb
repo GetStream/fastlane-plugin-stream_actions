@@ -17,7 +17,8 @@ module Fastlane
               version_number
             end
 
-          other_action.set_github_release(
+          make_latest = params[:make_latest]
+          release = other_action.set_github_release(
             repository_name: params[:github_repo],
             api_token: params[:github_token],
             name: version_number,
@@ -25,8 +26,10 @@ module Fastlane
             description: changes,
             commitish: other_action.current_branch,
             upload_assets: params[:upload_assets],
-            is_prerelease: version_number.downcase.include?('beta')
+            is_prerelease: version_number.downcase.include?('beta'),
+            is_draft: !make_latest
           )
+          publish_without_marking_latest(params, release) unless make_latest
         end
 
         unless skip_pods
@@ -41,6 +44,19 @@ module Fastlane
       def self.ensure_everything_is_set_up(params)
         other_action.ensure_git_branch(branch: 'main') unless params[:skip_branch_check]
         other_action.ensure_git_status_clean unless params[:skip_git_status_check]
+      end
+
+      # GitHub marks a release as Latest when it is created, so a release that must not be Latest
+      # (e.g. a patch of an older major version) is created as a draft and published with `make_latest: false`.
+      def self.publish_without_marking_latest(params, release)
+        UI.user_error!('Failed to create the GitHub release') unless release.kind_of?(Hash) && release['id']
+
+        other_action.github_api(
+          api_token: params[:github_token],
+          http_method: 'PATCH',
+          path: "repos/#{params[:github_repo]}/releases/#{release['id']}",
+          body: { draft: false, make_latest: 'false' }
+        )
       end
 
       def self.ensure_release_tag_is_new(version_number)
@@ -131,6 +147,13 @@ module Fastlane
             description: 'Static changelog',
             is_string: true,
             optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :make_latest,
+            description: 'Mark the GitHub release as Latest? Pass false for releases of an older major version',
+            is_string: false,
+            optional: true,
+            default_value: true
           ),
           FastlaneCore::ConfigItem.new(
             key: :upload_assets,
