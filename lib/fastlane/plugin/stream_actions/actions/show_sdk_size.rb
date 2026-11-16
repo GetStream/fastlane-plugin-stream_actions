@@ -77,7 +77,7 @@ module Fastlane
             else
               sh('git add -A')
               sh("git commit -m 'Update #{sdk_size_path}'")
-              sh('git push')
+              Helper::MetricsHelper.push
             end
           end
         end
