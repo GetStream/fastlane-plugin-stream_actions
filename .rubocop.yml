@@ -1,7 +1,8 @@
 ---
+plugins:
+- rubocop-performance
 require:
 - rubocop/require_tools
-- rubocop-performance
 - rubocop-rspec
 - rubocop-rake
 AllCops:
@@ -132,8 +133,10 @@ Lint/UnusedMethodArgument:
 Lint/ParenthesesAsGroupedExpression:
   Exclude:
   - "**/spec/**/*"
-Naming/PredicateName:
+Naming/PredicatePrefix:
   Enabled: false
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec
 Style/PerlBackrefs:
   Enabled: false
 Layout/SpaceAroundOperators:

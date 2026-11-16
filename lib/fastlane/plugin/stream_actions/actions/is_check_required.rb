@@ -27,7 +27,7 @@ module Fastlane
 
         # The current push does not touch :sources. It is only safe to skip if :sources were already
         # verified, i.e. all required checks passed on some commit that has the current :sources tree.
-        is_check_required = self.required_due_to_history(params, required_checks)
+        is_check_required = self.required_due_to_history?(params, required_checks)
         UI.important("Check is required: #{is_check_required}")
         is_check_required
       end
@@ -39,7 +39,7 @@ module Fastlane
       # Walks the PR commits from newest to oldest. Every commit newer than the last :sources change
       # has the current :sources tree, so a passing run on any of them means :sources were verified.
       # The walk stops at the commit that changed :sources, since older commits have different sources.
-      def self.required_due_to_history(params, required_checks)
+      def self.required_due_to_history?(params, required_checks)
         repo = (params[:github_repository] || ENV['GITHUB_REPOSITORY']).to_s
         if repo.empty?
           UI.important("No repository provided; cannot verify previous runs, running check")

@@ -8,7 +8,7 @@ module Fastlane
         upcoming_line = -1
         changes_since_last_release = ''
 
-        File.open(params[:changelog_path]).each.with_index do |line, index|
+        file_data.each_with_index do |line, index|
           if upcoming_line != -1
             break if line.start_with?('# [')
 
@@ -28,9 +28,7 @@ module Fastlane
         file_data.insert(upcoming_line + 2, '### 🔄 Changed')
         file_data.insert(upcoming_line + 3, '')
 
-        changelog = File.open(params[:changelog_path], 'w')
-        changelog.puts(file_data)
-        changelog.close
+        File.open(params[:changelog_path], 'w') { |changelog| changelog.puts(file_data) }
         UI.success("Successfully updated #{params[:changelog_path]}")
 
         changes_since_last_release

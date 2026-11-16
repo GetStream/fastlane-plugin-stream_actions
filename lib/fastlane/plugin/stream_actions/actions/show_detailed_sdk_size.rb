@@ -40,7 +40,7 @@ module Fastlane
           header = "## #{sdk} XCSize"
           content = "#{header}\nNo changes in SDK size."
           unless differences.empty?
-            sorted_differences = differences.sort_by { |_, diff| -diff.to_s.gsub(/[+\-]/, '').to_i }
+            sorted_differences = differences.sort_by { |_, diff| -diff.to_s.gsub(/[+-]/, '').to_i }
             content = "#{header}\n#{build_collapsible_table(sorted_differences.to_h)}"
           end
           UI.important(content)
