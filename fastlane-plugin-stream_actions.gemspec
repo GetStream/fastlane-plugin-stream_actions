@@ -22,7 +22,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency('rake')
   spec.add_development_dependency('rspec')
   spec.add_development_dependency('rspec_junit_formatter')
-  spec.add_development_dependency('rubocop', '1.38')
+  spec.add_development_dependency('rubocop', '1.92.0')
   spec.add_development_dependency('rubocop-performance')
   spec.add_development_dependency('rubocop-rake', '0.6.0')
   spec.add_development_dependency('rubocop-require_tools')
