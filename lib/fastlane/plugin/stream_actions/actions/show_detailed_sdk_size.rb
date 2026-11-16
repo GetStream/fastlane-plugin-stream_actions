@@ -58,7 +58,7 @@ module Fastlane
               else
                 sh('git add -A')
                 sh("git commit -m 'Update #{metrics_path}'")
-                sh('git push')
+                Helper::MetricsHelper.push
               end
             end
           end

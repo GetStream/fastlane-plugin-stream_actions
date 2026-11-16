@@ -77,27 +77,12 @@ module Fastlane
             else
               sh('git add -A')
               sh("git commit -m 'Update #{sdk_size_path}'")
-              push_benchmark
+              Helper::MetricsHelper.push
             end
           end
         end
 
         other_action.pr_comment(text: markdown_table, edit_last_comment_with_text: table_header)
-      end
-
-      # Other repositories push to the metrics repo too, so a push can be rejected until it is rebased on theirs.
-      def self.push_benchmark(attempts: 3)
-        attempt = 0
-        begin
-          attempt += 1
-          sh('git pull --rebase')
-          sh('git push')
-        rescue FastlaneCore::Interface::FastlaneShellError
-          raise if attempt >= attempts
-
-          UI.important("Storing the SDK size benchmark failed, retrying (#{attempt}/#{attempts}).")
-          retry
-        end
       end
 
       #####################################################
