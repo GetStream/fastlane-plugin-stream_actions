@@ -15,12 +15,13 @@ module Fastlane
         is_release = other_action.current_branch.include?('release/')
         is_push_to_base_branch = ENV['GITHUB_EVENT_NAME'].to_s == 'push' && other_action.current_branch == params[:base_branch]
         benchmark_config = JSON.parse(File.read(sdk_size_path))
-        benchmark_key = is_release ? 'release' : params[:base_branch]
+        storage_key = is_release ? 'release' : params[:base_branch]
+        benchmark_key = is_release ? storage_key : compared_branch(benchmark_config, storage_key, params[:fallback_branch])
         benchmark_sizes = benchmark_config[benchmark_key] || {}
         is_kb = params[:size_ext] == 'KB'
 
         table_header = '## SDK Size'
-        markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : params[:base_branch]}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
+        markdown_table = "#{table_header}\n| `title` | `#{is_release ? 'previous release' : benchmark_key}` | `#{is_release ? 'current release' : 'branch'}` | `diff` | `status` |\n| - | - | - | - | - |\n"
         params[:branch_sizes].each do |sdk_name, branch_value_kb|
           branch_value_mb = (branch_value_kb / 1024.0).round(2)
           branch_value = is_kb ? branch_value_kb.round(0) : branch_value_mb
@@ -69,7 +70,7 @@ module Fastlane
         return unless other_action.is_ci
 
         if is_release || is_push_to_base_branch
-          benchmark_config[benchmark_key] = params[:branch_sizes]
+          benchmark_config[storage_key] = params[:branch_sizes]
           File.write(sdk_size_path, JSON.pretty_generate(benchmark_config))
           Dir.chdir(File.dirname(sdk_size_path)) do
             if sh('git status -s').to_s.empty?
@@ -83,6 +84,14 @@ module Fastlane
         end
 
         other_action.pr_comment(text: markdown_table, edit_last_comment_with_text: table_header)
+      end
+
+      # The run stores its sizes under the base branch, but compares against the fallback branch while the base
+      # branch has no benchmark yet, e.g. for a pull request into a feature branch.
+      def self.compared_branch(benchmark_config, base_branch, fallback_branch)
+        return base_branch if fallback_branch.nil? || benchmark_config.key?(base_branch)
+
+        benchmark_config.key?(fallback_branch) ? fallback_branch : base_branch
       end
 
       #####################################################
@@ -132,6 +141,11 @@ module Fastlane
             key: :base_branch,
             description: 'Base branch name',
             default_value: 'develop'
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :fallback_branch,
+            description: 'Branch whose benchmark to compare against when the base branch has none',
+            optional: true
           )
         ]
       end
