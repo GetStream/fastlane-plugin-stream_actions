@@ -50,6 +50,16 @@ describe Fastlane do
         expect(api_params[:body]).to eq({ draft: false, make_latest: 'false' })
       end
 
+      # GitHub App tokens do not authenticate with the Basic scheme of `api_token`.
+      it 'sends the token as a Bearer token' do
+        publish(', make_latest: false')
+
+        expect(release_params[:api_bearer]).to eq('token')
+        expect(release_params._values).not_to have_key(:api_token)
+        expect(api_params[:api_bearer]).to eq('token')
+        expect(api_params._values).not_to have_key(:api_token)
+      end
+
       it 'fails when the draft release was not created' do
         allow(Fastlane::Actions::SetGithubReleaseAction).to receive(:run).and_return(nil)
 

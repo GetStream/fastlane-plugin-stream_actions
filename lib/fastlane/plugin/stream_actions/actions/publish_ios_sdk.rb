@@ -20,7 +20,8 @@ module Fastlane
           make_latest = params[:make_latest]
           release = other_action.set_github_release(
             repository_name: params[:github_repo],
-            api_token: params[:github_token],
+            # `api_bearer`, because GitHub App tokens do not authenticate with the Basic scheme of `api_token`.
+            api_bearer: params[:github_token],
             name: version_number,
             tag_name: version_number,
             description: changes,
@@ -52,7 +53,7 @@ module Fastlane
         UI.user_error!('Failed to create the GitHub release') unless release.kind_of?(Hash) && release['id']
 
         other_action.github_api(
-          api_token: params[:github_token],
+          api_bearer: params[:github_token],
           http_method: 'PATCH',
           path: "repos/#{params[:github_repo]}/releases/#{release['id']}",
           body: { draft: false, make_latest: 'false' }

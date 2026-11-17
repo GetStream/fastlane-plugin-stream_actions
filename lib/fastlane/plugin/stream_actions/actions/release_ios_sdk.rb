@@ -45,14 +45,22 @@ module Fastlane
         commit_changes(version_number)
 
         if params[:create_pull_request]
-          other_action.create_pull_request(
-            api_token: params[:github_token],
+          # `api_bearer`, because GitHub App tokens do not authenticate with the Basic scheme of `api_token`.
+          pull_request = other_action.create_pull_request(
+            api_bearer: params[:github_token],
             repo: params[:github_repo],
             title: "#{version_number} Release",
             head: "release/#{version_number}",
             base: 'main',
             body: changes.to_s
           )
+          # `create_pull_request` only logs a failed request and returns nil.
+          unless pull_request
+            UI.user_error!(
+              "Failed to create the release pull request. The branch release/#{version_number} is already pushed: " \
+              'open the pull request by hand, or delete the branch before you start the release again.'
+            )
+          end
         end
 
         UI.success("Successfully started release #{version_number}! 🚢")

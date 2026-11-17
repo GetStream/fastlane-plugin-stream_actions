@@ -17,14 +17,19 @@ module Fastlane
           body = 'This PR was created automatically by CI.'
           body += "\n\nTriggered by: #{run_url}" if run_url
 
-          other_action.create_pull_request(
-            api_token: ENV.fetch('GITHUB_TOKEN'),
+          # `api_bearer`, because GitHub App tokens do not authenticate with the Basic scheme of `api_token`.
+          pull_request = other_action.create_pull_request(
+            api_bearer: ENV.fetch('GITHUB_TOKEN'),
             repo: params[:github_repo],
             title: params[:title],
             head: params[:head_branch],
             base: params[:base_branch],
             body: body
           )
+          # `create_pull_request` only logs a failed request and returns nil.
+          unless pull_request
+            UI.user_error!("Failed to create the pull request. The branch #{params[:head_branch]} is already pushed.")
+          end
         end
       end
 
