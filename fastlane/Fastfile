@@ -1,13 +1,18 @@
+require 'net/http'
+
 skip_docs
+
+GEM_NAME = 'fastlane-plugin-stream_actions'
 
 lane :release do
   code_review
   sh('bundle exec rake build')
-  gem_path = "pkg/fastlane-plugin-stream_actions-#{version}.gem"
-  sh("gem push ../#{gem_path}")
+  gem_path = "pkg/#{GEM_NAME}-#{version}.gem"
+  # Skip the push when a previous run already published this version.
+  sh("gem push ../#{gem_path}") unless gem_published?
   set_github_release(
-    repository_name: 'GetStream/fastlane-plugin-stream_actions',
-    api_token: ENV.fetch('GITHUB_TOKEN', nil),
+    repository_name: "GetStream/#{GEM_NAME}",
+    api_bearer: github_token,
     name: "Stream Actions v#{version}",
     tag_name: "v#{version}",
     description: "v#{version}",
@@ -23,4 +28,19 @@ end
 def version
   version_path = '../lib/fastlane/plugin/stream_actions/version.rb'
   File.read(version_path).scan(/\d+/).join('.')
+end
+
+def gem_published?
+  uri = URI("https://rubygems.org/api/v2/rubygems/#{GEM_NAME}/versions/#{version}.json")
+  Net::HTTP.get_response(uri).is_a?(Net::HTTPSuccess)
+end
+
+# The GetStream org rejects classic personal access tokens, and a shell can
+# export one as GITHUB_TOKEN. Prefer the token of the `gh` login, which gh
+# only returns when both variables are unset.
+def github_token
+  token = `env -u GITHUB_TOKEN -u GH_TOKEN gh auth token 2>/dev/null`.strip
+  token = ENV.fetch('GITHUB_TOKEN', '') if token.empty?
+  UI.user_error!('No GitHub token. Run `gh auth login` or set GITHUB_TOKEN.') if token.empty?
+  token
 end
