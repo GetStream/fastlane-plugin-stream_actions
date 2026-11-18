@@ -1,6 +1,8 @@
 describe Fastlane do
   describe Fastlane::FastFile do
     describe 'Is Check Required Action' do
+      before { Fastlane::Actions::IsCheckRequiredAction.clear_cache }
+
       let(:test_sources) { ['test1', 'test2'] }
       let(:happy_path) { "#{test_sources.first}/some_path" }
       let(:unexpected_path) { "some/path/" }
@@ -313,6 +315,29 @@ describe Fastlane do
         )
 
         expect(run_history_action).to be(true)
+      end
+
+      it 'runs when the files of a commit cannot be read' do
+        stub_history_sh(
+          compare: "CHANGELOG.md\n",
+          commits: "sourcessha\nchangelogsha\n",
+          files: { 'changelogsha' => "CHANGELOG.md\n" },
+          checks: {}
+        )
+        allow(Fastlane::Actions).to receive(:sh).with(a_string_including('/commits/sourcessha')).and_raise('gh failed')
+
+        expect(run_history_action).to be(true)
+      end
+
+      it 'runs each gh command once when asked about several sources' do
+        allow(Fastlane::Actions).to receive(:sh).and_return("README.md\n")
+
+        described_class.new.parse("lane :test do
+          is_check_required(sources: ['test1'], github_pr_num: '0')
+          is_check_required(sources: ['test2'], github_pr_num: '0')
+        end").runner.execute(:test)
+
+        expect(Fastlane::Actions).to have_received(:sh).once
       end
 
       it 'skips when no commit in the PR changed sources' do

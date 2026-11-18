@@ -59,7 +59,12 @@ module Fastlane
             return false
           end
 
-          next unless self.touches_sources?(self.commit_files(repo, sha), params[:sources])
+          files = self.commit_files(repo, sha)
+          if files.nil?
+            UI.important("Could not list the files of commit #{short}; running check")
+            return true
+          end
+          next unless self.touches_sources?(files, params[:sources])
 
           UI.important("Last sources commit #{short} was not verified by a passing run; running check")
           return true
@@ -71,21 +76,21 @@ module Fastlane
 
       # PR commits, newest first (gh returns them oldest first).
       def self.pr_commit_shas(pr_num)
-        self.gh_path_lines(Actions.sh("gh pr view #{pr_num} --json commits -q '.commits[].oid'")).reverse
+        self.gh_path_lines(self.gh("gh pr view #{pr_num} --json commits -q '.commits[].oid'")).reverse
       rescue StandardError
         []
       end
 
-      # Files changed by a single commit (relative to its first parent).
+      # Files changed by a single commit (relative to its first parent), or nil when they cannot be read.
       def self.commit_files(repo, sha)
-        self.gh_path_lines(Actions.sh("gh api repos/#{repo}/commits/#{sha} --paginate -q '.files[].filename'"))
+        self.gh_path_lines(self.gh("gh api repos/#{repo}/commits/#{sha} --paginate -q '.files[].filename'"))
       rescue StandardError
-        []
+        nil
       end
 
       # True only if every required check has its latest run concluded as 'success' on the commit.
       def self.required_checks_passed?(repo, sha, required_checks)
-        out = Actions.sh(
+        out = self.gh(
           "gh api \"repos/#{repo}/commits/#{sha}/check-runs?per_page=100\" --paginate " \
           "-H \"Accept: application/vnd.github.v3+json\" " \
           "-q '.check_runs[] | \"\\(.name)\\t\\(.conclusion)\\t\\(.completed_at)\"'"
@@ -133,17 +138,30 @@ module Fastlane
           end
         end
 
-        self.gh_path_lines(Actions.sh("gh pr view #{params[:github_pr_num]} --json files -q '.files[].path'"))
+        self.gh_path_lines(self.gh("gh pr view #{params[:github_pr_num]} --json files -q '.files[].path'"))
       end
 
       def self.compare_push_files(repo, before, after)
-        self.gh_path_lines(Actions.sh(
+        self.gh_path_lines(self.gh(
                              "gh api \"repos/#{repo}/compare/#{before}...#{after}\" " \
                              "-H \"Accept: application/vnd.github.v3+json\" " \
                              "-q '.files[].filename'"
                            ))
       rescue StandardError
         nil
+      end
+
+      # One run often asks about many `sources` for the same PR, so each gh command runs only once.
+      # Failed commands are not cached.
+      def self.gh(command)
+        @gh_cache ||= {}
+        return @gh_cache[command] if @gh_cache.key?(command)
+
+        @gh_cache[command] = Actions.sh(command)
+      end
+
+      def self.clear_cache
+        @gh_cache = {}
       end
 
       def self.gh_path_lines(output)
@@ -180,6 +198,9 @@ module Fastlane
                are proven and it returns false. The walk stops at the commit that changed `sources` (older
                commits carry different sources); if none of them passed, the sources are unverified -> true.
                If `sources` were never changed anywhere in the PR, there is nothing to test -> false.
+               If the commits or their files cannot be read, the sources are unknown -> true.
+
+          Each gh command runs once per fastlane run, so asking about many `sources` reuses the lookups.
 
           This is what prevents a docs-only follow-up commit (e.g. editing CHANGELOG.md) from skipping tests
           when the underlying source changes never passed CI.

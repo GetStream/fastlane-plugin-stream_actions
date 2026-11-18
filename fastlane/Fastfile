@@ -32,7 +32,7 @@ end
 
 def gem_published?
   uri = URI("https://rubygems.org/api/v2/rubygems/#{GEM_NAME}/versions/#{version}.json")
-  Net::HTTP.get_response(uri).is_a?(Net::HTTPSuccess)
+  Net::HTTP.get_response(uri).kind_of?(Net::HTTPSuccess)
 end
 
 # The GetStream org rejects classic personal access tokens, and a shell can
